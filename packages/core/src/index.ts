@@ -13,7 +13,7 @@ export type {
   ShareState,
 } from "./types.js";
 
-export { DIALECTS, DIALECT_LABELS, toFormatterLanguage, toParserDialect } from "./dialects.js";
+export { DIALECTS, DIALECT_LABELS, toFormatterLanguage } from "./dialects.js";
 export { detectDialect, scoreDialectParse } from "./detect.js";
 export { parse, parseOrThrow, stringifyAst } from "./parse.js";
 export { format, formatRoundTripStable, validateFormatParse } from "./format.js";
@@ -28,3 +28,9 @@ export {
   DEFAULT_SHARE,
 } from "./share.js";
 export { diffLines, toUnifiedPatch } from "./patch.js";
+export {
+  SAMPLE_RISKY_UPDATE,
+  SAMPLE_MESSY_SELECT,
+  SAMPLE_BIGQUERY,
+  SAMPLE_SNOWFLAKE,
+} from "./samples.js";

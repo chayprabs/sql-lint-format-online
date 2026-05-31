@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Bundle size check
+        run: |
+          TOTAL=0
+          for f in packages/web/dist/assets/*.js; do
+            [ -f "$f" ] && TOTAL=$((TOTAL + $(wc -c < "$f")))
+          done
+          echo "Total JS bytes: $TOTAL"
+          MAX=1572864
+          if [ "$TOTAL" -gt "$MAX" ]; then
+            echo "Bundle exceeds 1.5 MB budget"
+            exit 1
+          fi
+
+      - name: Install Playwright
+        run: pnpm exec playwright install chromium --with-deps
+        working-directory: packages/web
+
+      - name: E2E
+        run: pnpm test:e2e

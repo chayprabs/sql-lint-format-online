@@ -22,10 +22,10 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "node-sql-parser": "^5.3.13",
     "sql-formatter": "^15.4.11"
   },
   "devDependencies": {
+    "@eslint/js": "^9.28.0",
     "@types/node": "^22.15.21",
     "eslint": "^9.28.0",
     "tsup": "^8.5.0",

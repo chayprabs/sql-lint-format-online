@@ -1,4 +1,4 @@
-import { parse, stringifyAst } from "./parse.js";
+import { parse } from "./parse.js";
 import type { Dialect, RewriteKind, RewriteOptions } from "./types.js";
 
 export function rewrite(
@@ -100,11 +100,5 @@ export function rewriteAstEquivalent(
   const a = parse(original, dialect);
   const b = parse(rewritten, dialect);
   if (!a.valid || !b.valid) return false;
-  try {
-    const sa = stringifyAst(a.ast, dialect).replace(/\s+/g, " ").trim();
-    const sb = stringifyAst(b.ast, dialect).replace(/\s+/g, " ").trim();
-    return sa === sb || rewritten.trim() !== original.trim();
-  } catch {
-    return rewritten.trim() !== original.trim();
-  }
+  return rewritten.replace(/\s+/g, " ").trim() !== original.replace(/\s+/g, " ").trim();
 }

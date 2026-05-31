@@ -1,4 +1,4 @@
-import { format as sqlFormat } from "sql-formatter";
+import { format as sqlFormat, type SqlLanguage } from "sql-formatter";
 import { toFormatterLanguage } from "./dialects.js";
 import { parse } from "./parse.js";
 import type { Dialect, FormatOptions } from "./types.js";
@@ -8,7 +8,7 @@ export function format(sql: string, dialect: Dialect, options: FormatOptions = {
   if (!trimmed) return "";
 
   const keywordCase = options.keywordCase ?? "upper";
-  const language = toFormatterLanguage(dialect);
+  const language = toFormatterLanguage(dialect) as SqlLanguage;
 
   try {
     return sqlFormat(trimmed, {

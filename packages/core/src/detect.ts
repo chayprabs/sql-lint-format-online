@@ -1,5 +1,5 @@
 import { parse } from "./parse.js";
-import { DIALECTS, toParserDialect } from "./dialects.js";
+import { DIALECTS } from "./dialects.js";
 import type { Dialect } from "./types.js";
 
 const DIALECT_HINTS: { dialect: Dialect; patterns: RegExp[] }[] = [
@@ -61,5 +61,3 @@ export function detectDialect(sql: string): Dialect {
 export function scoreDialectParse(sql: string, dialect: Dialect): boolean {
   return parse(sql, dialect).valid;
 }
-
-export { toParserDialect };

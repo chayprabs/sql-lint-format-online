@@ -1,0 +1,3 @@
+Contact: https://www.chaitanyaprabuddha.com
+Preferred-Languages: en
+Canonical: https://github.com/chayprabs/sql-lint-format-online/blob/main/SECURITY.md
