@@ -66,9 +66,15 @@ Build static assets with `pnpm build` and serve `packages/web/dist` with any sta
 - `/bigquery-formatter`
 - `/snowflake-formatter`
 
-## License
+## Legal
 
-MIT — see [LICENSE](LICENSE).
+| Document | Link |
+| -------- | ---- |
+| Privacy Policy | [/privacy](https://chayprabs.github.io/sql-lint-format-online/privacy) |
+| Terms & Conditions | [/terms](https://chayprabs.github.io/sql-lint-format-online/terms) |
+| License (MIT) | [/license](https://chayprabs.github.io/sql-lint-format-online/license) · [LICENSE](LICENSE) |
+
+Software is licensed under the **MIT License**. Use of the hosted website is also subject to the Terms & Conditions and Privacy Policy. See [LEGAL.md](LEGAL.md) and [NOTICE](NOTICE).
 
 ## Author
 

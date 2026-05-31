@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { HomePage } from "./pages/HomePage";
+import { LicensePage } from "./pages/LicensePage";
 import { PrivacyPage } from "./pages/PrivacyPage";
 import { SeoRoutePage } from "./pages/SeoRoutePage";
 import { NotFoundPage } from "./pages/NotFoundPage";
@@ -42,6 +43,7 @@ export const router = createBrowserRouter(
       },
       { path: "privacy", element: <PrivacyPage /> },
       { path: "terms", element: <TermsPage /> },
+      { path: "license", element: <LicensePage /> },
       { path: "*", element: <NotFoundPage /> },
     ],
   },

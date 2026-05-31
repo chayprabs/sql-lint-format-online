@@ -23,6 +23,10 @@ pnpm build
 
 Use [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `chore:`, `docs:`, `test:`.
 
-## License
+## License and legal
 
-By contributing, you agree that your contributions will be licensed under the MIT License.
+By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).
+
+You represent that you have the right to submit your contributions and that they do not violate third-party rights.
+
+Use of the public website is governed by the [Privacy Policy](https://chayprabs.github.io/sql-lint-format-online/privacy) and [Terms & Conditions](https://chayprabs.github.io/sql-lint-format-online/terms). See [LEGAL.md](LEGAL.md) for an overview.

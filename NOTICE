@@ -1,0 +1,17 @@
+SQLGuard (sql-lint-format-online)
+Copyright (c) 2026 Chaitanya Prabuddha
+
+This product includes open-source software licensed under the MIT License and
+other permissive licenses. See package.json and node_modules for third-party
+notices. Major runtime dependencies include React, sql-formatter, Monaco Editor,
+and related libraries.
+
+USE OF THE PUBLIC WEBSITE
+Use of the hosted SQLGuard web application is subject to the Terms & Conditions
+and Privacy Policy published at the site, in addition to the MIT License for
+source code.
+
+DISCLAIMER
+THE SOFTWARE AND WEBSITE ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND.
+LINT, FORMAT, AND REWRITE OUTPUTS ARE SUGGESTIONS ONLY. YOU ARE SOLELY
+RESPONSIBLE FOR REVIEWING AND TESTING SQL BEFORE USE IN ANY ENVIRONMENT.

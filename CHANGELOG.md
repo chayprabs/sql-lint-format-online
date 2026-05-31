@@ -9,6 +9,6 @@ All notable changes to this project are documented in this file.
 - Browser-only SQL playground (SQLGuard) with lint, format, rewrites, and schema preflight
 - Nine SQL dialects with auto-detect
 - Rule bundles: review, strict, BigQuery
-- SEO landing routes and privacy/terms pages
+- SEO landing routes and legal pages (privacy, terms, license)
 - CI (lint, typecheck, test, build, bundle budget, Playwright e2e)
 - Docker/nginx self-host image
