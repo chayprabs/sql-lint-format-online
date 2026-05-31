@@ -6,6 +6,7 @@ test-results
 .turbo
 *.log
 .DS_Store
+*.tsbuildinfo
 
 # Local planning documents intentionally kept out of GitHub
 PRODUCT_REQUIREMENTS.md
