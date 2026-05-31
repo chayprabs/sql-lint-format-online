@@ -5,7 +5,7 @@ import { lint, format, type Dialect } from "@sqlguard/core";
 const args = process.argv.slice(2);
 const command = args[0];
 const file = args[1];
-const dialect = (args.find((a) => a.startsWith("--dialect="))?.split("=")[1] ??
+const dialect = (args.find((a: string) => a.startsWith("--dialect="))?.split("=")[1] ??
   "postgresql") as Dialect;
 
 if (!command || !file) {
