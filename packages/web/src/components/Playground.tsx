@@ -37,7 +37,7 @@ export function Playground({ focus, defaultDialect }: PlaygroundProps) {
             onChange={(e) => pg.setDialect(e.target.value as (typeof DIALECTS)[number])}
             className="rounded-md border border-[var(--color-border)] bg-white px-3 py-2 text-sm"
           >
-            {DIALECTS.map((d) => (
+            {DIALECTS.map((d: Dialect) => (
               <option key={d} value={d}>
                 {DIALECT_LABELS[d]}
               </option>
