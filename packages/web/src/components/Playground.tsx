@@ -7,7 +7,10 @@ import {
   SAMPLE_RISKY_UPDATE,
   SAMPLE_SNOWFLAKE,
   type RewriteKind,
+  type RuleBundle,
 } from "@sqlguard/core";
+
+type Dialect = (typeof DIALECTS)[number];
 import { usePlayground } from "../hooks/usePlayground";
 
 const REWRITES: { kind: RewriteKind; label: string }[] = [
@@ -51,7 +54,7 @@ export function Playground({ focus, defaultDialect }: PlaygroundProps) {
             onChange={(e) => pg.setBundle(e.target.value as typeof pg.bundle)}
             className="rounded-md border border-[var(--color-border)] bg-white px-3 py-2 text-sm capitalize"
           >
-            {bundles.map((b) => (
+            {bundles.map((b: RuleBundle) => (
               <option key={b} value={b}>
                 {b}
               </option>
@@ -227,7 +230,7 @@ export function Playground({ focus, defaultDialect }: PlaygroundProps) {
           </div>
           {pg.showDiff && pg.diff.length > 0 ? (
             <pre className="max-h-64 overflow-auto rounded-lg border border-[var(--color-border)] bg-white p-3 font-mono text-xs">
-              {pg.diff.map((line, i) => (
+              {pg.diff.map((line: { type: string; content: string }, i: number) => (
                 <div
                   key={i}
                   className={
