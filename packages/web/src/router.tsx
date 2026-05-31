@@ -6,7 +6,8 @@ import { SeoRoutePage } from "./pages/SeoRoutePage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { TermsPage } from "./pages/TermsPage";
 
-export const router = createBrowserRouter([
+export const router = createBrowserRouter(
+  [
   {
     element: <Layout />,
     children: [
@@ -44,4 +45,6 @@ export const router = createBrowserRouter([
       { path: "*", element: <NotFoundPage /> },
     ],
   },
-]);
+  ],
+  { basename: import.meta.env.BASE_URL },
+);

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Github, Globe } from "lucide-react";
 import { GITHUB_REPO, PRODUCT_NAME, TWITTER_URL, WEBSITE_URL } from "../config";
 
@@ -13,9 +14,9 @@ export function TopBar() {
   return (
     <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-surface-elevated)]">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-        <a href="/" className="text-lg font-semibold tracking-tight text-[var(--color-accent)]">
+        <Link to="/" className="text-lg font-semibold tracking-tight text-[var(--color-accent)]">
           {PRODUCT_NAME}
-        </a>
+        </Link>
         <nav className="flex items-center gap-4" aria-label="External links">
           <a
             href={GITHUB_REPO}

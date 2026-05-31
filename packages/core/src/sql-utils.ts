@@ -5,6 +5,13 @@ export function stripSqlComments(sql: string): string {
     .replace(/--[^\n]*/g, " ");
 }
 
+/** Mask comments in place so indices stay aligned with the original SQL. */
+export function maskSqlComments(sql: string): string {
+  return sql
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => " ".repeat(m.length))
+    .replace(/--[^\n]*/g, (m) => " ".repeat(m.length));
+}
+
 /** Mask string literals so regex rules do not match inside quotes. */
 export function maskStringLiterals(line: string): string {
   return line

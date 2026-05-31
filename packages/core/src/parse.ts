@@ -26,6 +26,7 @@ function structuralSyntaxValid(sql: string): boolean {
   if (/^UPDATE\b/i.test(t) && !/^UPDATE\s+\w+\s+SET\b/i.test(t)) return false;
   if (/^DELETE\s+FROM\s*;?\s*$/i.test(t)) return false;
   if (/^SELECT\b/i.test(t) && /\bFROM\s*;?\s*$/i.test(t)) return false;
+  if (/^SELECT\b/i.test(t) && !/\bFROM\b/i.test(t)) return true;
   if (/^SELECT\b/i.test(t) && !/\bFROM\s+[\w`"(*]/i.test(t)) return false;
   return true;
 }

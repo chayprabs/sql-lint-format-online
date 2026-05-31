@@ -1,6 +1,11 @@
 import type { ColumnDef, Dialect, LintIssue, SchemaMap } from "./types.js";
 import { parse } from "./parse.js";
-import { maskStringLiterals, splitCommaRespectingParens, stripSqlComments } from "./sql-utils.js";
+import {
+  maskSqlComments,
+  maskStringLiterals,
+  splitCommaRespectingParens,
+  stripSqlComments,
+} from "./sql-utils.js";
 
 function parseColumnDef(fragment: string): ColumnDef | null {
   const m = fragment.trim().match(/^"?(\w+)"?\s+((?:\w+\([^)]*\))|\w+)/i);
@@ -80,6 +85,37 @@ function extractTableAliases(sql: string): Record<string, string> {
     aliases[table] = table;
   }
   return aliases;
+}
+
+const DERIVED_SKIP = new Set([
+  "where",
+  "join",
+  "group",
+  "order",
+  "limit",
+  "having",
+  "union",
+  "inner",
+  "left",
+  "right",
+  "cross",
+  "on",
+  "and",
+  "or",
+]);
+
+/** CTE and subquery aliases are not physical tables in user DDL. */
+function registerDerivedAliases(sql: string, derived: Set<string>): void {
+  const cteRe = /\bWITH\s+(\w+)\s+AS\s*\(/gi;
+  let m: RegExpExecArray | null;
+  while ((m = cteRe.exec(sql)) !== null) {
+    derived.add(m[1]!.toLowerCase());
+  }
+  const subRe = /\)\s+(?:AS\s+)?(\w+)\b/gi;
+  while ((m = subRe.exec(sql)) !== null) {
+    const alias = m[1]!.toLowerCase();
+    if (!DERIVED_SKIP.has(alias)) derived.add(alias);
+  }
 }
 
 function lineColumnAt(sql: string, index: number): { line: number; column: number } {
@@ -167,13 +203,16 @@ export function preflight(sql: string, ddl: string, dialect: Dialect): LintIssue
     return issues;
   }
 
-  const body = stripSqlComments(sql);
+  const body = maskSqlComments(sql);
   const aliases = extractTableAliases(body);
+  const derivedTables = new Set<string>();
+  registerDerivedAliases(body, derivedTables);
   const refs = extractTableColumnRefs(body);
   for (const ref of refs) {
     const pos = lineColumnAt(sql, ref.index);
     const aliasKey = ref.table ?? "";
     const resolvedTable = aliases[aliasKey] ?? aliasKey;
+    if (derivedTables.has(resolvedTable) || derivedTables.has(aliasKey)) continue;
     const tableSchema =
       schema[resolvedTable] ??
       schema[`public.${resolvedTable}`] ??

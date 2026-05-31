@@ -9,7 +9,7 @@ const DIALECT_HINTS: { dialect: Dialect; patterns: RegExp[] }[] = [
   },
   {
     dialect: "snowflake",
-    patterns: [/\bQUALIFY\b/i, /\bFLATTEN\s*\(/i, /\bILIKE\b/i, /\$\d+/],
+    patterns: [/\bQUALIFY\b/i, /\bFLATTEN\s*\(/i, /\$\d+/],
   },
   {
     dialect: "mssql",
@@ -17,7 +17,7 @@ const DIALECT_HINTS: { dialect: Dialect; patterns: RegExp[] }[] = [
   },
   {
     dialect: "mysql",
-    patterns: [/\bLIMIT\s+\d+/i, /\bAUTO_INCREMENT\b/i, /`[^`]+`/],
+    patterns: [/\bAUTO_INCREMENT\b/i, /`[^`]+`/],
   },
   {
     dialect: "postgresql",
@@ -53,6 +53,8 @@ export function detectDialect(sql: string): Dialect {
     if (score > bestScore) {
       bestScore = score;
       best = hint.dialect;
+    } else if (score === bestScore && score > 0 && hint.dialect === "postgresql") {
+      best = "postgresql";
     }
   }
 

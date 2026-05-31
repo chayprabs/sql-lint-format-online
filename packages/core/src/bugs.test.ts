@@ -41,6 +41,32 @@ describe("regression bugs", () => {
     expect(issues.some((i) => i.message.includes("a.b"))).toBe(false);
   });
 
+  it("parses scalar SELECT without FROM", () => {
+    expect(parse("SELECT 1;", "postgresql").valid).toBe(true);
+  });
+
+  it("ignores = NULL in line comments for null-equality", () => {
+    const issues = lint("SELECT id FROM users WHERE active = true; -- col = NULL", {
+      dialect: "postgresql",
+      bundle: "review",
+    });
+    expect(issues.filter((i) => i.rule === "null-equality")).toHaveLength(0);
+  });
+
+  it("flags comma join with table aliases and no WHERE", () => {
+    const issues = lint("SELECT * FROM orders o, customers c;", {
+      dialect: "postgresql",
+      bundle: "review",
+    });
+    expect(issues.some((i) => i.rule === "cartesian-join")).toBe(true);
+  });
+
+  it("preflight skips subquery alias tables", () => {
+    const ddl = "CREATE TABLE users (id INT);";
+    const issues = preflight("SELECT sub.id FROM (SELECT id FROM users) sub;", ddl, "postgresql");
+    expect(issues.some((i) => i.rule === "preflight-unknown-table")).toBe(false);
+  });
+
   it("preflight resolves schema.table columns", () => {
     const ddl = "CREATE TABLE public.users (id INT);";
     const issues = preflight("SELECT public.users.id FROM public.users;", ddl, "postgresql");

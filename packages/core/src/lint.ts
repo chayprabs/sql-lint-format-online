@@ -56,7 +56,9 @@ const RULES: Record<string, { severity: LintIssue["severity"]; run: RuleFn }> = 
       const statements = splitStatements(stripSqlComments(sql));
       for (const stmt of statements.length ? statements : [sql]) {
         if (
-          /\bFROM\s+(?:[\w]+\.)*\w+\s*,\s*(?:[\w]+\.)*\w+/i.test(stmt) &&
+          /\bFROM\s+(?:`[^`]+`|[\w.]+)(?:\s+(?:AS\s+)?\w+)?\s*,\s*(?:`[^`]+`|[\w.]+)(?:\s+(?:AS\s+)?\w+)?/i.test(
+            stmt,
+          ) &&
           !hasTopLevelWhere(stmt)
         ) {
           issues.push({
@@ -86,8 +88,9 @@ const RULES: Record<string, { severity: LintIssue["severity"]; run: RuleFn }> = 
       const issues: LintIssue[] = [];
       const lines = sql.split("\n");
       lines.forEach((line, idx) => {
-        const masked = maskStringLiterals(line);
-        if (/^\s*--/.test(line)) return;
+        const code = line.replace(/--.*$/, "").replace(/\/\*[\s\S]*?\*\//g, "");
+        const masked = maskStringLiterals(code);
+        if (!code.trim()) return;
 
         let replacement = line;
         if (/(?:<>|!=)\s*NULL\b/i.test(masked)) {

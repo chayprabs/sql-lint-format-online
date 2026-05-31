@@ -32,11 +32,12 @@ export function Playground({ focus, defaultDialect }: PlaygroundProps) {
   const pg = usePlayground(focus, defaultDialect);
   const bundles = getRuleBundles();
 
-  const onDdlFile = (file: File | null) => {
+  const onDdlFile = (file: File | null, input?: HTMLInputElement | null) => {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => pg.setDdl(String(reader.result ?? ""));
     reader.readAsText(file);
+    if (input) input.value = "";
   };
 
   return (
@@ -141,7 +142,7 @@ export function Playground({ focus, defaultDialect }: PlaygroundProps) {
                 type="file"
                 accept=".sql,.txt,text/plain"
                 className="hidden"
-                onChange={(e) => onDdlFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => onDdlFile(e.target.files?.[0] ?? null, e.target)}
               />
             </label>
           </div>
@@ -242,15 +243,15 @@ export function Playground({ focus, defaultDialect }: PlaygroundProps) {
           [
             ["Risky UPDATE", SAMPLE_RISKY_UPDATE, undefined],
             ["Messy SELECT", SAMPLE_MESSY_SELECT, undefined],
-            ["BigQuery", SAMPLE_BIGQUERY, "bigquery" as Dialect],
-            ["Snowflake", SAMPLE_SNOWFLAKE, "snowflake" as Dialect],
+            ["BigQuery", SAMPLE_BIGQUERY, "bigquery" as Dialect, "bigquery" as RuleBundle],
+            ["Snowflake", SAMPLE_SNOWFLAKE, "snowflake" as Dialect, undefined],
           ] as const
-        ).map(([label, sample, d]) => (
+        ).map(([label, sample, d, b]) => (
           <button
             key={label}
             type="button"
             className="underline hover:text-[var(--color-accent)]"
-            onClick={() => pg.loadSample(sample, d)}
+            onClick={() => pg.loadSample(sample, d, b)}
           >
             {label}
           </button>

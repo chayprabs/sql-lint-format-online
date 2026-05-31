@@ -32,7 +32,13 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @sqlguard/core build
-      - run: pnpm --filter @sqlguard/web build
+      - name: Build web for GitHub Pages
+        run: pnpm --filter @sqlguard/web build
+        env:
+          VITE_BASE_PATH: /sql-lint-format-online/
+
+      - name: SPA fallback for GitHub Pages
+        run: cp packages/web/dist/index.html packages/web/dist/404.html
 
       - uses: actions/configure-pages@v4
 

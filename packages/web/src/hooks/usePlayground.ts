@@ -51,6 +51,8 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
   const [toast, setToast] = useState<string | null>(null);
   const hydrated = useRef(false);
   const skipHashSync = useRef(false);
+  const issuesRef = useRef<LintIssue[]>([]);
+  issuesRef.current = issues;
 
   const schema = useMemo(() => parseDdl(ddl), [ddl]);
 
@@ -59,16 +61,44 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
     window.setTimeout(() => setToast(null), 2200);
   }, []);
 
-  const applyShareState = useCallback((state: ShareState) => {
-    setSql(state.sql);
-    setDialect(state.dialect);
-    setBundle(state.bundle);
-    setDdl(state.ddl ?? "");
-    setFormatOptions({ ...DEFAULT_FORMAT_OPTIONS, ...state.formatOptions });
-    setIssues([]);
-    setOutput("");
-    setShowDiff(false);
-  }, []);
+  const refreshLint = useCallback(
+    (text: string, d: Dialect, b: RuleBundle, ddlText: string) => {
+      if (!text.trim()) {
+        setIssues([]);
+        return;
+      }
+      const lintIssues = lint(text, { dialect: d, bundle: b });
+      const preIssues = ddlText.trim() ? preflight(text, ddlText, d) : [];
+      setIssues(mergePreflightWithLint(lintIssues, preIssues));
+    },
+    [],
+  );
+
+  const applyShareState = useCallback(
+    (state: ShareState) => {
+      const fmt = { ...DEFAULT_FORMAT_OPTIONS, ...state.formatOptions };
+      setSql(state.sql);
+      setDialect(state.dialect);
+      setBundle(state.bundle);
+      setDdl(state.ddl ?? "");
+      setFormatOptions(fmt);
+      if (initialMode === "format") {
+        const formatted = format(state.sql, state.dialect, fmt);
+        setOutput(formatted);
+        setShowDiff(!!formatted.trim());
+        setIssues([]);
+      } else if (initialMode === "lint") {
+        refreshLint(state.sql, state.dialect, state.bundle, state.ddl ?? "");
+        setOutput("");
+        setShowDiff(false);
+      } else {
+        setIssues([]);
+        setOutput("");
+        setShowDiff(false);
+      }
+    },
+    [initialMode, refreshLint],
+  );
 
   useEffect(() => {
     void (async () => {
@@ -89,7 +119,7 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
         const saved = await loadPlayground();
         if (saved) {
           loadedSql = saved.sql;
-          loadedDialect = saved.dialect;
+          loadedDialect = initialDialect ?? saved.dialect;
           loadedBundle = saved.bundle;
           loadedDdl = saved.ddl;
           loadedFormat = saved.formatOptions;
@@ -120,11 +150,31 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
   useEffect(() => {
     const onHashChange = () => {
       const state = parseHashFromLocation(window.location.hash);
-      if (state) applyShareState(state);
+      if (state) {
+        applyShareState(state);
+        return;
+      }
+      void (async () => {
+        const saved = await loadPlayground();
+        if (saved) {
+          applyShareState({
+            sql: saved.sql,
+            dialect: initialDialect ?? saved.dialect,
+            bundle: saved.bundle,
+            ddl: saved.ddl,
+            formatOptions: saved.formatOptions,
+          });
+        } else {
+          applyShareState({
+            ...DEFAULT_SHARE,
+            dialect: initialDialect ?? DEFAULT_SHARE.dialect,
+          });
+        }
+      })();
     };
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
-  }, [applyShareState]);
+  }, [applyShareState, initialDialect]);
 
   useEffect(() => {
     if (!hydrated.current) return;
@@ -135,6 +185,30 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
     }
     syncUrlHash({ sql, dialect, bundle, ddl: ddl || undefined, formatOptions });
   }, [sql, dialect, bundle, ddl, formatOptions]);
+
+  useEffect(() => {
+    if (!hydrated.current || issuesRef.current.length === 0) return;
+    refreshLint(sql, dialect, bundle, ddl);
+  }, [dialect, bundle, sql, ddl, refreshLint]);
+
+  const setSqlEditor = useCallback((value: string) => {
+    setSql(value);
+    if (!value.trim()) {
+      setIssues([]);
+      setOutput("");
+      setShowDiff(false);
+      return;
+    }
+    setIssues([]);
+    setOutput("");
+    setShowDiff(false);
+  }, []);
+
+  const setFormatOptionsSafe = useCallback((value: FormatOptions) => {
+    setFormatOptions(value);
+    setOutput("");
+    setShowDiff(false);
+  }, []);
 
   const runLint = useCallback(() => {
     const lintIssues = lint(sql, { dialect, bundle });
@@ -175,8 +249,9 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
   const runDetect = useCallback(() => {
     const detected = detectDialect(sql);
     setDialect(detected);
+    refreshLint(sql, detected, bundle, ddl);
     showToast(`Dialect set to ${DIALECT_LABELS[detected]}`);
-  }, [sql, showToast]);
+  }, [sql, bundle, ddl, refreshLint, showToast]);
 
   const applyIssueFix = useCallback(
     (issue: LintIssue) => {
@@ -211,12 +286,13 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
   const setDdlAndRefresh = useCallback(
     (value: string) => {
       setDdl(value);
-      if (!sql.trim()) return;
-      const lintIssues = lint(sql, { dialect, bundle });
-      const preIssues = value.trim() ? preflight(sql, value, dialect) : [];
-      setIssues(mergePreflightWithLint(lintIssues, preIssues));
+      if (!sql.trim()) {
+        setIssues([]);
+        return;
+      }
+      refreshLint(sql, dialect, bundle, value);
     },
-    [sql, dialect, bundle],
+    [sql, dialect, bundle, refreshLint],
   );
 
   const copyPatch = useCallback(() => {
@@ -241,18 +317,18 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
   }, [showToast]);
 
   const loadSample = useCallback(
-    (sample: string, sampleDialect?: Dialect) => {
+    (sample: string, sampleDialect?: Dialect, sampleBundle?: RuleBundle) => {
       const d = sampleDialect ?? dialect;
+      const b = sampleBundle ?? bundle;
       setSql(sample);
       if (sampleDialect) setDialect(sampleDialect);
-      const lintIssues = lint(sample, { dialect: d, bundle });
-      const preIssues = ddl.trim() ? preflight(sample, ddl, d) : [];
-      setIssues(mergePreflightWithLint(lintIssues, preIssues));
+      if (sampleBundle) setBundle(sampleBundle);
+      refreshLint(sample, d, b, ddl);
       setOutput("");
       setShowDiff(false);
       showToast("Sample loaded — lint results updated");
     },
-    [dialect, bundle, ddl, showToast],
+    [dialect, bundle, ddl, refreshLint, showToast],
   );
 
   const copySql = useCallback(() => {
@@ -267,7 +343,7 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
 
   return {
     sql,
-    setSql,
+    setSql: setSqlEditor,
     dialect,
     setDialect,
     bundle,
@@ -275,7 +351,7 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
     ddl,
     setDdl: setDdlAndRefresh,
     formatOptions,
-    setFormatOptions,
+    setFormatOptions: setFormatOptionsSafe,
     output,
     issues,
     showDiff,
