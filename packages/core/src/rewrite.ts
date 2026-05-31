@@ -59,18 +59,46 @@ function qualifyTables(sql: string, opts: RewriteOptions): string {
 }
 
 function extractSubqueryToCte(sql: string): string {
-  const subqueryMatch = sql.match(
-    /\bFROM\s*\(\s*(SELECT[\s\S]+?)\)\s*(?:AS\s+)?(\w+)/i,
-  );
-  if (!subqueryMatch) return sql;
-  const inner = subqueryMatch[1]!.trim();
-  const alias = subqueryMatch[2] ?? "subq";
-  const cteName = "extracted_subquery";
-  const without = sql.replace(subqueryMatch[0], `FROM ${cteName} AS ${alias}`);
-  if (/\bWITH\b/i.test(sql)) {
-    return without.replace(/\bWITH\b/i, `WITH ${cteName} AS (${inner}), `);
+  const fromMatch = /\bFROM\s*\(/i.exec(sql);
+  if (!fromMatch || fromMatch.index === undefined) return sql;
+
+  const openIdx = sql.indexOf("(", fromMatch.index);
+  if (openIdx < 0) return sql;
+
+  let depth = 0;
+  let closeIdx = -1;
+  for (let i = openIdx; i < sql.length; i++) {
+    if (sql[i] === "(") depth++;
+    else if (sql[i] === ")") {
+      depth--;
+      if (depth === 0) {
+        closeIdx = i;
+        break;
+      }
+    }
   }
-  return `WITH ${cteName} AS (\n  ${inner}\n)\n${without}`;
+  if (closeIdx < 0) return sql;
+
+  const inner = sql.slice(openIdx + 1, closeIdx).trim();
+  if (!/^SELECT\b/i.test(inner)) return sql;
+
+  const afterParen = sql.slice(closeIdx + 1);
+  const aliasMatch = afterParen.match(/^\s*(?:AS\s+)?(\w+)/i);
+  const alias = aliasMatch?.[1] ?? "subq";
+  const replaceEnd = closeIdx + 1 + (aliasMatch?.[0]?.length ?? 0);
+
+  const cteName = "extracted_subquery";
+  const before = sql.slice(0, fromMatch.index);
+  const after = sql.slice(replaceEnd);
+  const fromReplacement = `FROM ${cteName} AS ${alias}`;
+
+  if (/\bWITH\b/i.test(sql)) {
+    return `${before}${fromReplacement}${after}`.replace(
+      /\bWITH\b/i,
+      `WITH ${cteName} AS (\n  ${inner}\n), `,
+    );
+  }
+  return `WITH ${cteName} AS (\n  ${inner}\n)\n${before}${fromReplacement}${after}`;
 }
 
 function antiJoinToNotExists(sql: string): string {
@@ -79,24 +107,35 @@ function antiJoinToNotExists(sql: string): string {
   );
   if (!anti) return sql;
 
-  const [, selectList, leftTable, leftAlias, rightTable, rightAlias, onClause] = anti;
+  const nullAlias = anti[7]!.toLowerCase();
+  const rightAlias = anti[5]!.toLowerCase();
+  if (nullAlias !== rightAlias) return sql;
+
+  const [, selectList, leftTable, leftAlias, rightTable, , onClause] = anti;
   return `SELECT ${selectList?.trim()}\nFROM ${leftTable} ${leftAlias}\nWHERE NOT EXISTS (\n  SELECT 1 FROM ${rightTable} ${rightAlias}\n  WHERE ${onClause?.trim()}\n)`;
 }
 
 function implicitToExplicitJoin(sql: string): string {
-  const m = sql.match(
-    /\bFROM\s+(\w+)\s+(\w+)?\s*,\s*(\w+)\s+(\w+)?\s+WHERE\s+(.+?)(;|$)/is,
+  const withAlias = sql.match(
+    /\bFROM\s+(\w+)\s+(\w+)\s*,\s*(\w+)\s+(\w+)\s+WHERE\s+([\s\S]+?)(;|$)/i,
   );
-  if (!m) return sql;
-  const [, t1, a1, t2, a2, condition] = m;
-  const alias1 = a1 || t1;
-  const alias2 = a2 || t2;
-  const before = sql.slice(0, m.index);
-  const after = sql.slice((m.index ?? 0) + m[0].length);
-  return `${before}FROM ${t1} ${alias1}\nINNER JOIN ${t2} ${alias2} ON ${condition?.trim()}${after}`;
+  if (withAlias) {
+    const [, t1, a1, t2, a2, condition] = withAlias;
+    const kw = /^(where|inner|left|right|cross|join|on)$/i;
+    if (kw.test(a1!) || kw.test(a2!)) return sql;
+    const before = sql.slice(0, withAlias.index);
+    const after = sql.slice((withAlias.index ?? 0) + withAlias[0].length);
+    return `${before}FROM ${t1} ${a1}\nINNER JOIN ${t2} ${a2} ON ${condition?.trim()}${after}`;
+  }
+
+  const noAlias = sql.match(/\bFROM\s+(\w+)\s*,\s*(\w+)\s+WHERE\s+([\s\S]+?)(;|$)/i);
+  if (!noAlias) return sql;
+  const [, t1, t2, condition] = noAlias;
+  const before = sql.slice(0, noAlias.index);
+  const after = sql.slice((noAlias.index ?? 0) + noAlias[0].length);
+  return `${before}FROM ${t1}\nINNER JOIN ${t2} ON ${condition?.trim()}${after}`;
 }
 
-/** Returns true when rewrite parses and differs from original (PRD A2 smoke check). */
 export function rewriteProducesValidChange(
   original: string,
   rewritten: string,
@@ -108,5 +147,4 @@ export function rewriteProducesValidChange(
   return rewritten.replace(/\s+/g, " ").trim() !== original.replace(/\s+/g, " ").trim();
 }
 
-/** @deprecated Use rewriteProducesValidChange */
 export const rewriteAstEquivalent = rewriteProducesValidChange;

@@ -257,7 +257,7 @@ export function Playground({ focus, defaultDialect }: PlaygroundProps) {
         ))}
       </div>
 
-      {(pg.output || pg.showDiff) && (
+      {!!pg.output.trim() && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium">Output</label>
@@ -266,9 +266,7 @@ export function Playground({ focus, defaultDialect }: PlaygroundProps) {
                 <>
                   <button
                     type="button"
-                    onClick={() =>
-                      void navigator.clipboard.writeText(pg.output).then(() => {})
-                    }
+                    onClick={pg.copySql}
                     className="text-xs text-[var(--color-accent)] hover:underline"
                   >
                     Copy SQL

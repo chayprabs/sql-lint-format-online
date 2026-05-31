@@ -1,33 +1,55 @@
 import type { ColumnDef, Dialect, LintIssue, SchemaMap } from "./types.js";
 import { parse } from "./parse.js";
-import { stripSqlComments } from "./sql-utils.js";
-
-const CREATE_TABLE =
-  /CREATE\s+TABLE\s+(?:(\w+)\.)?(\w+)\s*\(([\s\S]*?)\)\s*;?/gi;
+import { splitCommaRespectingParens, stripSqlComments } from "./sql-utils.js";
 
 function parseColumnDef(fragment: string): ColumnDef | null {
-  const m = fragment.trim().match(/^"?(\w+)"?\s+([\w()]+)/i);
+  const m = fragment.trim().match(/^"?(\w+)"?\s+((?:\w+\([^)]*\))|\w+)/i);
   if (!m) return null;
   return { name: m[1]!.toLowerCase(), type: m[2]!.toLowerCase() };
 }
 
+function extractTableBodies(text: string): { schema: string; table: string; body: string }[] {
+  const tables: { schema: string; table: string; body: string }[] = [];
+  const header = /\bCREATE\s+TABLE\s+(?:(\w+)\.)?(\w+)\s*\(/gi;
+  let m: RegExpExecArray | null;
+  while ((m = header.exec(text)) !== null) {
+    const openIdx = text.indexOf("(", m.index);
+    if (openIdx < 0) continue;
+    let depth = 0;
+    let closeIdx = -1;
+    for (let i = openIdx; i < text.length; i++) {
+      if (text[i] === "(") depth++;
+      else if (text[i] === ")") {
+        depth--;
+        if (depth === 0) {
+          closeIdx = i;
+          break;
+        }
+      }
+    }
+    if (closeIdx < 0) continue;
+    tables.push({
+      schema: (m[1] ?? "public").toLowerCase(),
+      table: m[2]!.toLowerCase(),
+      body: text.slice(openIdx + 1, closeIdx),
+    });
+  }
+  return tables;
+}
+
 export function parseDdl(ddl: string): SchemaMap {
   const schema: SchemaMap = {};
-  let match: RegExpExecArray | null;
   const text = ddl.replace(/--[^\n]*/g, "");
 
-  while ((match = CREATE_TABLE.exec(text)) !== null) {
-    const tableSchema = (match[1] ?? "public").toLowerCase();
-    const tableName = match[2]!.toLowerCase();
-    const body = match[3] ?? "";
+  for (const { schema: tableSchema, table: tableName, body } of extractTableBodies(text)) {
     const key = `${tableSchema}.${tableName}`;
     schema[key] = {};
     schema[tableName] = schema[tableName] ?? {};
 
-    const parts = body.split(",");
+    const parts = splitCommaRespectingParens(body);
     for (const part of parts) {
       const col = parseColumnDef(part);
-      if (col && !/^(primary|foreign|unique|constraint|check)\b/i.test(part.trim())) {
+      if (col && !/\b(primary|foreign|unique|constraint|check)\b/i.test(part.trim())) {
         schema[key]![col.name] = col;
         schema[tableName]![col.name] = col;
       }
@@ -174,20 +196,27 @@ export function preflight(sql: string, ddl: string, dialect: Dialect): LintIssue
   }
 
   const typeMismatches = body.matchAll(/(\w+)\s*(?:=|<>|!=)\s*'[^']*'/g);
+  const seenType = new Set<string>();
   for (const expr of typeMismatches) {
     const colName = expr[1]!.toLowerCase();
     const idx = expr.index ?? 0;
     const pos = lineColumnAt(sql, idx);
-    for (const table of Object.values(schema)) {
-      const def = table[colName];
+    for (const tableName of fromTables) {
+      const tableSchema = schema[tableName] ?? schema[`public.${tableName}`];
+      const def = tableSchema?.[colName];
       if (def && /int|numeric|decimal|float|double|bigint|serial/.test(def.type)) {
-        issues.push({
-          rule: "preflight-type-mismatch",
-          severity: "warn",
-          line: pos.line,
-          column: pos.column,
-          message: `Column "${colName}" is ${def.type} but compared to a string literal`,
-        });
+        const key = `${colName}:${def.type}`;
+        if (!seenType.has(key)) {
+          seenType.add(key);
+          issues.push({
+            rule: "preflight-type-mismatch",
+            severity: "warn",
+            line: pos.line,
+            column: pos.column,
+            message: `Column "${colName}" is ${def.type} but compared to a string literal`,
+          });
+        }
+        break;
       }
     }
   }

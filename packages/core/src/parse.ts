@@ -1,15 +1,29 @@
 import { format as sqlFormat, type SqlLanguage } from "sql-formatter";
 import { toFormatterLanguage } from "./dialects.js";
+import { stripSqlComments } from "./sql-utils.js";
 import type { Dialect, ParseResult } from "./types.js";
 
 function basicSyntaxValid(sql: string): boolean {
   const trimmed = sql.trim();
   if (!trimmed) return true;
-  const statements = /^(SELECT|INSERT|UPDATE|DELETE|WITH|CREATE|ALTER|DROP|MERGE|TRUNCATE|GRANT|REVOKE)\b/i;
+  const statements =
+    /^(SELECT|INSERT|UPDATE|DELETE|WITH|CREATE|ALTER|DROP|MERGE|TRUNCATE|GRANT|REVOKE)\b/i;
   if (!statements.test(trimmed)) return false;
   const open = (trimmed.match(/\(/g) ?? []).length;
   const close = (trimmed.match(/\)/g) ?? []).length;
   return open === close;
+}
+
+function structuralSyntaxValid(sql: string): boolean {
+  const t = stripSqlComments(sql).replace(/\s+/g, " ").trim();
+  if (!t) return true;
+  if (/^SELECT\s+FROM\b/i.test(t)) return false;
+  if (/^SELECT\s+FROM\s+WHERE\b/i.test(t)) return false;
+  if (/\bFROM\s+WHERE\b/i.test(t)) return false;
+  if (/\bFROM\s*,/i.test(t)) return false;
+  if (/^INSERT\s+INTO\s*$/i.test(t)) return false;
+  if (/^UPDATE\s+SET\b/i.test(t) && !/^UPDATE\s+\w+/i.test(t)) return false;
+  return true;
 }
 
 export function parse(sql: string, dialect: Dialect): ParseResult {
@@ -18,8 +32,8 @@ export function parse(sql: string, dialect: Dialect): ParseResult {
     return { ast: { type: "empty" }, valid: true };
   }
 
-  if (!basicSyntaxValid(trimmed)) {
-    return { ast: null, valid: false, error: "Unrecognized or unbalanced SQL statement" };
+  if (!basicSyntaxValid(trimmed) || !structuralSyntaxValid(trimmed)) {
+    return { ast: null, valid: false, error: "Unrecognized or invalid SQL structure" };
   }
 
   try {
@@ -27,9 +41,6 @@ export function parse(sql: string, dialect: Dialect): ParseResult {
     sqlFormat(trimmed, { language, keywordCase: "preserve" });
     return { ast: { type: "query", dialect, sql: trimmed }, valid: true };
   } catch (err) {
-    if (basicSyntaxValid(trimmed)) {
-      return { ast: { type: "query", dialect, sql: trimmed }, valid: true };
-    }
     const message = err instanceof Error ? err.message : String(err);
     return { ast: null, valid: false, error: message };
   }

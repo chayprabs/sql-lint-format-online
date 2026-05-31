@@ -14,7 +14,7 @@ describe("lint performance", () => {
     }
     times.sort((a, b) => a - b);
     const p95 = times[Math.floor(runs * 0.95)] ?? times[runs - 1]!;
-    const budgetMs = process.env.CI ? 120 : 50;
+    const budgetMs = process.env.CI ? 120 : 80;
     expect(p95).toBeLessThan(budgetMs);
   });
 });

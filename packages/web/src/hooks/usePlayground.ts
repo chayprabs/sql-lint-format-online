@@ -50,6 +50,7 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
   const [showDiff, setShowDiff] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const hydrated = useRef(false);
+  const skipHashSync = useRef(false);
 
   const schema = useMemo(() => parseDdl(ddl), [ddl]);
 
@@ -125,6 +126,10 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
   useEffect(() => {
     if (!hydrated.current) return;
     void savePlayground({ sql, dialect, bundle, ddl, formatOptions });
+    if (skipHashSync.current) {
+      skipHashSync.current = false;
+      return;
+    }
     syncUrlHash({ sql, dialect, bundle, ddl: ddl || undefined, formatOptions });
   }, [sql, dialect, bundle, ddl, formatOptions]);
 
@@ -140,7 +145,7 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
     const formatted = format(sql, dialect, formatOptions);
     setOutput(formatted);
     setIssues([]);
-    setShowDiff(true);
+    setShowDiff(!!formatted.trim());
   }, [sql, dialect, formatOptions]);
 
   const runRewrite = useCallback(
@@ -200,6 +205,7 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
   }, [sql, output, showToast]);
 
   const clearHistory = useCallback(() => {
+    skipHashSync.current = true;
     void clearPlayground();
     setSql(DEFAULT_SHARE.sql);
     setDialect(DEFAULT_SHARE.dialect);
@@ -208,21 +214,30 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
     setFormatOptions(DEFAULT_FORMAT_OPTIONS);
     setOutput("");
     setIssues([]);
+    setShowDiff(false);
     window.history.replaceState(null, "", window.location.pathname);
     showToast("Local history cleared");
   }, [showToast]);
 
   const loadSample = useCallback(
     (sample: string, sampleDialect?: Dialect) => {
+      const d = sampleDialect ?? dialect;
       setSql(sample);
       if (sampleDialect) setDialect(sampleDialect);
-      const lintIssues = lint(sample, { dialect: sampleDialect ?? dialect, bundle });
-      setIssues(lintIssues);
+      const lintIssues = lint(sample, { dialect: d, bundle });
+      const preIssues = ddl.trim() ? preflight(sample, ddl, d) : [];
+      setIssues(mergePreflightWithLint(lintIssues, preIssues));
       setOutput("");
+      setShowDiff(false);
       showToast("Sample loaded — lint results updated");
     },
-    [dialect, bundle, showToast],
+    [dialect, bundle, ddl, showToast],
   );
+
+  const copySql = useCallback(() => {
+    if (!output) return;
+    void navigator.clipboard.writeText(output).then(() => showToast("SQL copied"));
+  }, [output, showToast]);
 
   const diff = useMemo(() => {
     if (!showDiff || !output) return [];
@@ -252,6 +267,7 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
     applyIssueFix,
     share,
     copyPatch,
+    copySql,
     clearHistory,
     loadSample,
     diff,

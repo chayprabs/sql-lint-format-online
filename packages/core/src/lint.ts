@@ -1,5 +1,10 @@
 import { parse } from "./parse.js";
-import { splitStatements, stripSqlComments } from "./sql-utils.js";
+import {
+  hasTopLevelWhere,
+  maskStringLiterals,
+  splitStatements,
+  stripSqlComments,
+} from "./sql-utils.js";
 import type { Dialect, LintIssue, LintOptions, RuleBundle } from "./types.js";
 
 type RuleFn = (sql: string, dialect: Dialect) => LintIssue[];
@@ -30,7 +35,7 @@ const RULES: Record<string, { severity: LintIssue["severity"]; run: RuleFn }> = 
       const body = stripSqlComments(sql);
       for (const stmt of splitStatements(body.length ? body : sql)) {
         if (!/\b(UPDATE|DELETE)\b/i.test(stmt)) continue;
-        if (!/\bWHERE\b/i.test(stmt)) {
+        if (!hasTopLevelWhere(stmt)) {
           const lineNum = sql.slice(0, sql.indexOf(stmt.trim().slice(0, 20))).split("\n").length;
           issues.push({
             rule: "missing-where-update-delete",
@@ -50,7 +55,10 @@ const RULES: Record<string, { severity: LintIssue["severity"]; run: RuleFn }> = 
       const issues: LintIssue[] = [];
       const statements = splitStatements(stripSqlComments(sql));
       for (const stmt of statements.length ? statements : [sql]) {
-        if (/\bFROM\s+\w+\s*,\s*\w+/i.test(stmt) && !/\bWHERE\b/i.test(stmt)) {
+        if (
+          /\bFROM\s+(?:[\w]+\.)*\w+\s*,\s*(?:[\w]+\.)*\w+/i.test(stmt) &&
+          !hasTopLevelWhere(stmt)
+        ) {
           issues.push({
             rule: "cartesian-join",
             severity: "warn",
@@ -78,12 +86,15 @@ const RULES: Record<string, { severity: LintIssue["severity"]; run: RuleFn }> = 
       const issues: LintIssue[] = [];
       const lines = sql.split("\n");
       lines.forEach((line, idx) => {
+        const masked = maskStringLiterals(line);
+        if (/^\s*--/.test(line)) return;
+
         let replacement = line;
-        if (/=\s*NULL\b/i.test(line) && !/\bIS\s+NULL\b/i.test(line)) {
-          replacement = replacement.replace(/=\s*NULL\b/gi, "IS NULL");
+        if (/(?:<>|!=)\s*NULL\b/i.test(masked) && !/\bIS\s+NOT\s+NULL\b/i.test(masked)) {
+          replacement = replacement.replace(/(?:<>|!=)\s*NULL\b/gi, "IS NOT NULL");
         }
-        if (/<>?\s*NULL\b/i.test(line) && !/\bIS\s+NOT\s+NULL\b/i.test(line)) {
-          replacement = replacement.replace(/<>?\s*NULL\b/gi, "IS NOT NULL");
+        if (/(?<![!<>])=\s*NULL\b/i.test(masked) && !/\bIS\s+NULL\b/i.test(masked)) {
+          replacement = replacement.replace(/(?<![!<>])=\s*NULL\b/gi, "IS NULL");
         }
         if (replacement !== line) {
           issues.push({
@@ -110,7 +121,10 @@ const RULES: Record<string, { severity: LintIssue["severity"]; run: RuleFn }> = 
             line: sql.split("\n").length,
             column: 1,
             message: "Consider terminating the statement with a semicolon",
-            fix: { range: [0, sql.length], replacement: `${sql.trimEnd()};` },
+            fix: {
+              range: [0, sql.length],
+              replacement: `${sql.trimEnd()};`,
+            },
           },
         ];
       }
@@ -247,12 +261,32 @@ export function lint(sql: string, opts: LintOptions): LintIssue[] {
 
 export function applyFix(sql: string, issue: LintIssue): string {
   if (!issue.fix) return sql;
+
+  const [start, end] = issue.fix.range;
+  if (start === 0 && end >= sql.length) {
+    return issue.fix.replacement;
+  }
+
+  if (issue.rule === "trailing-semicolon") {
+    const lines = sql.split("\n");
+    const last = lines.length - 1;
+    if (last >= 0) {
+      lines[last] = `${lines[last]!.trimEnd()};`;
+      return lines.join("\n");
+    }
+  }
+
   const lines = sql.split("\n");
   const lineIdx = issue.line - 1;
-  if (lineIdx >= 0 && lineIdx < lines.length) {
+  if (lineIdx >= 0 && lineIdx < lines.length && !issue.fix.replacement.includes("\n")) {
     lines[lineIdx] = issue.fix.replacement;
     return lines.join("\n");
   }
+
+  if (issue.fix.replacement.includes("\n") || end - start >= sql.length - 1) {
+    return issue.fix.replacement;
+  }
+
   return sql;
 }
 
