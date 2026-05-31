@@ -12,47 +12,33 @@ export default function App() {
         <Route index element={<HomePage />} />
         <Route
           path="sql-format-online"
-          element={
-            <SeoRoutePage
-              subtitle="SQL format online — pretty-print PostgreSQL, MySQL, Snowflake and BigQuery"
-              focus="format"
-            />
-          }
+          element={<SeoRoutePage focus="format" />}
+          handle={{
+            seoSubtitle:
+              "SQL format online — pretty-print PostgreSQL, MySQL, Snowflake and BigQuery",
+          }}
         />
         <Route
           path="sql-lint-online"
-          element={
-            <SeoRoutePage
-              subtitle="SQL lint online — risky-query warnings and rule bundles"
-              focus="lint"
-            />
-          }
+          element={<SeoRoutePage focus="lint" />}
+          handle={{
+            seoSubtitle: "SQL lint online — risky-query warnings and rule bundles",
+          }}
         />
         <Route
           path="sql-pretty-print"
-          element={
-            <SeoRoutePage subtitle="SQL pretty print — format with preserved comments" focus="format" />
-          }
+          element={<SeoRoutePage focus="format" />}
+          handle={{ seoSubtitle: "SQL pretty print — format with preserved comments" }}
         />
         <Route
           path="bigquery-formatter"
-          element={
-            <SeoRoutePage
-              subtitle="BigQuery formatter — lint and format BigQuery SQL"
-              focus="format"
-              defaultDialect="bigquery"
-            />
-          }
+          element={<SeoRoutePage focus="format" defaultDialect="bigquery" />}
+          handle={{ seoSubtitle: "BigQuery formatter — lint and format BigQuery SQL" }}
         />
         <Route
           path="snowflake-formatter"
-          element={
-            <SeoRoutePage
-              subtitle="Snowflake formatter — lint and format Snowflake SQL"
-              focus="format"
-              defaultDialect="snowflake"
-            />
-          }
+          element={<SeoRoutePage focus="format" defaultDialect="snowflake" />}
+          handle={{ seoSubtitle: "Snowflake formatter — lint and format Snowflake SQL" }}
         />
         <Route path="privacy" element={<PrivacyPage />} />
         <Route path="terms" element={<TermsPage />} />

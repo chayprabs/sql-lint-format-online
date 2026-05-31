@@ -1,22 +1,26 @@
 import { useEffect } from "react";
+import { useMatches } from "react-router-dom";
 import { Playground } from "../components/Playground";
 import type { Dialect } from "@sqlguard/core";
 
 interface SeoRoutePageProps {
-  subtitle: string;
   focus?: "lint" | "format";
   defaultDialect?: Dialect;
 }
 
-export function SeoRoutePage({ subtitle, focus, defaultDialect }: SeoRoutePageProps) {
+type RouteHandle = { seoSubtitle?: string };
+
+export function SeoRoutePage({ focus, defaultDialect }: SeoRoutePageProps) {
+  const matches = useMatches();
+  const subtitle = [...matches]
+    .reverse()
+    .map((m) => (m.handle as RouteHandle | undefined)?.seoSubtitle)
+    .find(Boolean);
+
   useEffect(() => {
-    document.title = subtitle.split("—")[0]?.trim() ?? "SQLGuard";
+    const title = subtitle?.split("—")[0]?.trim() ?? "SQLGuard";
+    document.title = `${title} | SQLGuard`;
   }, [subtitle]);
 
-  return (
-    <>
-      <p className="sr-only">{subtitle}</p>
-      <Playground focus={focus} defaultDialect={defaultDialect} />
-    </>
-  );
+  return <Playground focus={focus} defaultDialect={defaultDialect} />;
 }

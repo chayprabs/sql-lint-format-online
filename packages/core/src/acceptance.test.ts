@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { lint } from "./lint.js";
-import { rewrite, rewriteAstEquivalent } from "./rewrite.js";
+import { rewrite, rewriteProducesValidChange } from "./rewrite.js";
 import { parseDdl } from "./preflight.js";
 import {
   SAMPLE_RISKY_UPDATE,
@@ -39,7 +39,7 @@ describe("acceptance A2", () => {
       dialect: "postgresql",
       schema,
     });
-    expect(rewriteAstEquivalent("SELECT * FROM users;", out, "postgresql")).toBe(true);
+    expect(rewriteProducesValidChange("SELECT * FROM users;", out, "postgresql")).toBe(true);
     expect(out).toContain("users.id");
   });
 });

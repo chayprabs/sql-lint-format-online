@@ -48,7 +48,13 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
     if (initialMode === "format" && !output) {
       setOutput(format(sql, dialect));
     }
-  }, [initialMode, sql, dialect, output]);
+    if (initialMode === "lint" && issues.length === 0) {
+      const lintIssues = lint(sql, { dialect, bundle });
+      const preIssues = ddl.trim() ? preflight(sql, ddl, dialect) : [];
+      setIssues(mergePreflightWithLint(lintIssues, preIssues));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount for SEO routes
+  }, []);
 
   const runLint = useCallback(() => {
     const lintIssues = lint(sql, { dialect, bundle });
@@ -86,12 +92,17 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
 
   const applyIssueFix = useCallback(
     (issue: LintIssue) => {
-      if (issue.fix) {
-        setSql(applyFix(sql, issue));
-        runLint();
-      }
+      if (!issue.fix) return;
+      const next = applyFix(sql, issue);
+      setSql(next);
+      const lintIssues = lint(next, { dialect, bundle });
+      const preIssues = ddl.trim() ? preflight(next, ddl, dialect) : [];
+      setIssues(mergePreflightWithLint(lintIssues, preIssues));
+      setOutput("");
+      setShowDiff(false);
+      setLastAction("fix");
     },
-    [sql, runLint],
+    [sql, dialect, bundle, ddl],
   );
 
   const share = useCallback(() => {

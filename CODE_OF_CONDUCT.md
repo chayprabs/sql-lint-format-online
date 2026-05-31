@@ -20,7 +20,8 @@ Examples of unacceptable behavior:
 
 ## Enforcement
 
-Instances of abusive behavior may be reported to the repository maintainers.
+Instances of abusive behavior may be reported to the repository maintainers at
+chaitanyaplusplus@gmail.com or via GitHub issues for non-sensitive matters.
 
 ## Attribution
 

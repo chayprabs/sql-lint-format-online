@@ -19,7 +19,7 @@ export { parse, parseOrThrow, stringifyAst } from "./parse.js";
 export { format, formatRoundTripStable, validateFormatParse } from "./format.js";
 export { lint, applyFix, getRuleBundles } from "./lint.js";
 export { preflight, parseDdl, mergePreflightWithLint } from "./preflight.js";
-export { rewrite, rewriteAstEquivalent } from "./rewrite.js";
+export { rewrite, rewriteProducesValidChange, rewriteAstEquivalent } from "./rewrite.js";
 export {
   encodeShareState,
   decodeShareState,

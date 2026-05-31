@@ -1,13 +1,17 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useMatches } from "react-router-dom";
 import { Footer } from "./Footer";
 import { SeoBar } from "./SeoBar";
 import { TopBar } from "./TopBar";
 
-interface LayoutProps {
-  seoSubtitle?: string;
-}
+type RouteHandle = { seoSubtitle?: string };
 
-export function Layout({ seoSubtitle }: LayoutProps) {
+export function Layout() {
+  const matches = useMatches();
+  const seoSubtitle = [...matches]
+    .reverse()
+    .map((m) => (m.handle as RouteHandle | undefined)?.seoSubtitle)
+    .find(Boolean);
+
   return (
     <div className="flex min-h-screen flex-col">
       <TopBar />

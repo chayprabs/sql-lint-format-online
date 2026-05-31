@@ -1,3 +1,6 @@
 Contact: https://www.chaitanyaprabuddha.com
+Contact: mailto:chaitanyaplusplus@gmail.com
 Preferred-Languages: en
+Expires: 2027-05-31T00:00:00Z
+Policy: https://github.com/chayprabs/sql-lint-format-online/blob/main/SECURITY.md
 Canonical: https://github.com/chayprabs/sql-lint-format-online/blob/main/SECURITY.md

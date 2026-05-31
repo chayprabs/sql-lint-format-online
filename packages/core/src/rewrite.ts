@@ -26,29 +26,36 @@ export function rewrite(
 }
 
 function expandSelectStar(sql: string, opts: RewriteOptions): string {
-  if (!/\bSELECT\s+\*/i.test(sql)) return sql;
+  if (!/\bSELECT\s+(?:\w+\.)?\*/i.test(sql)) return sql;
   const schema = opts.schema;
   if (!schema || Object.keys(schema).length === 0) return sql;
 
-  const fromMatch = sql.match(/\bFROM\s+(?:(\w+)\.)?(\w+)/i);
+  const fromMatch = sql.match(/\bFROM\s+(?:(\w+)\.)?(\w+)(?:\s+(?:AS\s+)?(\w+))?/i);
   if (!fromMatch) return sql;
 
   const tableName = (fromMatch[2] ?? fromMatch[1])!.toLowerCase();
+  const alias = fromMatch[3]?.toLowerCase();
+  const prefix = alias && alias !== tableName ? alias : tableName;
   const tableSchema = schema[tableName] ?? schema[`${opts.defaultSchema ?? "public"}.${tableName}`];
   if (!tableSchema) return sql;
 
   const columns = Object.keys(tableSchema)
-    .map((c) => `${tableName}.${c}`)
+    .map((c) => `${prefix}.${c}`)
     .join(", ");
-  return sql.replace(/\bSELECT\s+\*/i, `SELECT ${columns}`);
+  return sql.replace(/\bSELECT\s+(?:\w+\.)?\*/i, `SELECT ${columns}`);
 }
 
 function qualifyTables(sql: string, opts: RewriteOptions): string {
   const defaultSchema = opts.defaultSchema ?? "public";
-  return sql.replace(
+  let out = sql.replace(
     /\bFROM\s+(?!(?:\w+\.))(\w+)/gi,
     (_, table: string) => `FROM ${defaultSchema}.${table}`,
   );
+  out = out.replace(
+    /\bJOIN\s+(?!(?:\w+\.))(\w+)/gi,
+    (_, table: string) => `JOIN ${defaultSchema}.${table}`,
+  );
+  return out;
 }
 
 function extractSubqueryToCte(sql: string): string {
@@ -61,10 +68,7 @@ function extractSubqueryToCte(sql: string): string {
   const cteName = "extracted_subquery";
   const without = sql.replace(subqueryMatch[0], `FROM ${cteName} AS ${alias}`);
   if (/\bWITH\b/i.test(sql)) {
-    return sql.replace(
-      /\bWITH\b/i,
-      `WITH ${cteName} AS (${inner}), `,
-    );
+    return without.replace(/\bWITH\b/i, `WITH ${cteName} AS (${inner}), `);
   }
   return `WITH ${cteName} AS (\n  ${inner}\n)\n${without}`;
 }
@@ -92,7 +96,8 @@ function implicitToExplicitJoin(sql: string): string {
   return `${before}FROM ${t1} ${alias1}\nINNER JOIN ${t2} ${alias2} ON ${condition?.trim()}${after}`;
 }
 
-export function rewriteAstEquivalent(
+/** Returns true when rewrite parses and differs from original (PRD A2 smoke check). */
+export function rewriteProducesValidChange(
   original: string,
   rewritten: string,
   dialect: Dialect,
@@ -102,3 +107,6 @@ export function rewriteAstEquivalent(
   if (!a.valid || !b.valid) return false;
   return rewritten.replace(/\s+/g, " ").trim() !== original.replace(/\s+/g, " ").trim();
 }
+
+/** @deprecated Use rewriteProducesValidChange */
+export const rewriteAstEquivalent = rewriteProducesValidChange;

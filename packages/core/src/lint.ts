@@ -1,4 +1,5 @@
 import { parse } from "./parse.js";
+import { splitStatements, stripSqlComments } from "./sql-utils.js";
 import type { Dialect, LintIssue, LintOptions, RuleBundle } from "./types.js";
 
 type RuleFn = (sql: string, dialect: Dialect) => LintIssue[];
@@ -26,34 +27,18 @@ const RULES: Record<string, { severity: LintIssue["severity"]; run: RuleFn }> = 
     severity: "error",
     run: (sql) => {
       const issues: LintIssue[] = [];
-      const lines = sql.split("\n");
-      lines.forEach((line, idx) => {
-        const upper = line.toUpperCase();
-        if (/\b(UPDATE|DELETE)\b/.test(upper) && !/\bWHERE\b/.test(upper)) {
-          if (!/\bWHERE\b/.test(sql.toUpperCase().slice(sql.indexOf(line)))) {
-            issues.push({
-              rule: "missing-where-update-delete",
-              severity: "error",
-              line: idx + 1,
-              column: 1,
-              message: "UPDATE or DELETE without WHERE may affect all rows",
-            });
-          }
-        }
-      });
-      const updateDeleteBlocks = sql.match(/\b(UPDATE|DELETE)\b[\s\S]*?;/gi) ?? [];
-      for (const block of updateDeleteBlocks) {
-        if (!/\bWHERE\b/i.test(block)) {
-          const lineNum = sql.slice(0, sql.indexOf(block)).split("\n").length;
-          if (!issues.some((i) => i.line === lineNum)) {
-            issues.push({
-              rule: "missing-where-update-delete",
-              severity: "error",
-              line: lineNum,
-              column: 1,
-              message: "UPDATE or DELETE without WHERE may affect all rows",
-            });
-          }
+      const body = stripSqlComments(sql);
+      for (const stmt of splitStatements(body.length ? body : sql)) {
+        if (!/\b(UPDATE|DELETE)\b/i.test(stmt)) continue;
+        if (!/\bWHERE\b/i.test(stmt)) {
+          const lineNum = sql.slice(0, sql.indexOf(stmt.trim().slice(0, 20))).split("\n").length;
+          issues.push({
+            rule: "missing-where-update-delete",
+            severity: "error",
+            line: Math.max(1, lineNum),
+            column: 1,
+            message: "UPDATE or DELETE without WHERE may affect all rows",
+          });
         }
       }
       return issues;
@@ -63,15 +48,15 @@ const RULES: Record<string, { severity: LintIssue["severity"]; run: RuleFn }> = 
     severity: "warn",
     run: (sql) => {
       const issues: LintIssue[] = [];
-      if (/\bFROM\b[\s\S]*?,[\s\S]*\bWHERE\b/i.test(sql) === false) {
-        const implicit = sql.match(/\bFROM\s+(\w+)\s*,\s*(\w+)/gi);
-        if (implicit) {
+      const statements = splitStatements(stripSqlComments(sql));
+      for (const stmt of statements.length ? statements : [sql]) {
+        if (/\bFROM\s+\w+\s*,\s*\w+/i.test(stmt) && !/\bWHERE\b/i.test(stmt)) {
           issues.push({
             rule: "cartesian-join",
             severity: "warn",
             line: 1,
             column: 1,
-            message: "Comma join detected; prefer explicit JOIN to avoid cartesian products",
+            message: "Comma join without WHERE may be a cartesian product; prefer explicit JOIN",
           });
         }
       }
@@ -113,7 +98,7 @@ const RULES: Record<string, { severity: LintIssue["severity"]; run: RuleFn }> = 
   "select-star": {
     severity: "info",
     run: (sql) => {
-      if (/\bSELECT\s+\*/i.test(sql)) {
+      if (/\bSELECT\s+(?:\w+\.)?\*/i.test(sql)) {
         return [
           {
             rule: "select-star",

@@ -4,6 +4,8 @@
 
 [![CI](https://github.com/chayprabs/sql-lint-format-online/actions/workflows/ci.yml/badge.svg)](https://github.com/chayprabs/sql-lint-format-online/actions/workflows/ci.yml)
 
+- [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [Changelog](CHANGELOG.md)
+
 ## Features
 
 - **9 dialects** — PostgreSQL, MySQL, SQLite, MS SQL Server, Snowflake, BigQuery, Redshift, DuckDB, Oracle
