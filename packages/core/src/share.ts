@@ -16,13 +16,24 @@ function decodeBase64Url(str: string): string {
   return new TextDecoder().decode(bytes);
 }
 
+function extractHashPayload(input: string): string {
+  let raw = input.trim();
+  if (!raw) return "";
+  if (raw.includes("#")) {
+    raw = raw.slice(raw.lastIndexOf("#") + 1);
+  } else if (raw.startsWith("#")) {
+    raw = raw.slice(1);
+  }
+  return raw;
+}
+
 export function encodeShareState(state: ShareState): string {
   return encodeBase64Url(JSON.stringify(state));
 }
 
 export function decodeShareState(hash: string): ShareState | null {
   try {
-    const raw = hash.startsWith("#") ? hash.slice(1) : hash;
+    const raw = extractHashPayload(hash);
     if (!raw) return null;
     const json = decodeBase64Url(raw);
     return JSON.parse(json) as ShareState;

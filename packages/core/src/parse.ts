@@ -22,7 +22,11 @@ function structuralSyntaxValid(sql: string): boolean {
   if (/\bFROM\s+WHERE\b/i.test(t)) return false;
   if (/\bFROM\s*,/i.test(t)) return false;
   if (/^INSERT\s+INTO\s*$/i.test(t)) return false;
-  if (/^UPDATE\s+SET\b/i.test(t) && !/^UPDATE\s+\w+/i.test(t)) return false;
+  if (/^UPDATE\s+SET\b/i.test(t)) return false;
+  if (/^UPDATE\b/i.test(t) && !/^UPDATE\s+\w+\s+SET\b/i.test(t)) return false;
+  if (/^DELETE\s+FROM\s*;?\s*$/i.test(t)) return false;
+  if (/^SELECT\b/i.test(t) && /\bFROM\s*;?\s*$/i.test(t)) return false;
+  if (/^SELECT\b/i.test(t) && !/\bFROM\s+[\w`"(*]/i.test(t)) return false;
   return true;
 }
 

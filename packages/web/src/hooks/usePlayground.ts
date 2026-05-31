@@ -63,8 +63,11 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
     setSql(state.sql);
     setDialect(state.dialect);
     setBundle(state.bundle);
-    if (state.ddl) setDdl(state.ddl);
-    if (state.formatOptions) setFormatOptions({ ...DEFAULT_FORMAT_OPTIONS, ...state.formatOptions });
+    setDdl(state.ddl ?? "");
+    setFormatOptions({ ...DEFAULT_FORMAT_OPTIONS, ...state.formatOptions });
+    setIssues([]);
+    setOutput("");
+    setShowDiff(false);
   }, []);
 
   useEffect(() => {
@@ -159,10 +162,14 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
         showToast("Rewrite had no effect for this query");
         return;
       }
+      setSql(result);
+      const lintIssues = lint(result, { dialect, bundle });
+      const preIssues = ddl.trim() ? preflight(result, ddl, dialect) : [];
+      setIssues(mergePreflightWithLint(lintIssues, preIssues));
       setOutput(result);
       setShowDiff(true);
     },
-    [sql, dialect, schema, showToast],
+    [sql, dialect, bundle, ddl, schema, showToast],
   );
 
   const runDetect = useCallback(() => {
@@ -195,8 +202,22 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
       formatOptions,
     });
     syncUrlHash({ sql, dialect, bundle, ddl: ddl || undefined, formatOptions });
-    void navigator.clipboard.writeText(url).then(() => showToast("Share link copied"));
+    void navigator.clipboard.writeText(url).then(
+      () => showToast("Share link copied"),
+      () => showToast("Could not copy link"),
+    );
   }, [sql, dialect, bundle, ddl, formatOptions, showToast]);
+
+  const setDdlAndRefresh = useCallback(
+    (value: string) => {
+      setDdl(value);
+      if (!sql.trim()) return;
+      const lintIssues = lint(sql, { dialect, bundle });
+      const preIssues = value.trim() ? preflight(sql, value, dialect) : [];
+      setIssues(mergePreflightWithLint(lintIssues, preIssues));
+    },
+    [sql, dialect, bundle],
+  );
 
   const copyPatch = useCallback(() => {
     if (!output) return;
@@ -252,7 +273,7 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
     bundle,
     setBundle,
     ddl,
-    setDdl,
+    setDdl: setDdlAndRefresh,
     formatOptions,
     setFormatOptions,
     output,

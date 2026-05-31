@@ -90,10 +90,10 @@ const RULES: Record<string, { severity: LintIssue["severity"]; run: RuleFn }> = 
         if (/^\s*--/.test(line)) return;
 
         let replacement = line;
-        if (/(?:<>|!=)\s*NULL\b/i.test(masked) && !/\bIS\s+NOT\s+NULL\b/i.test(masked)) {
+        if (/(?:<>|!=)\s*NULL\b/i.test(masked)) {
           replacement = replacement.replace(/(?:<>|!=)\s*NULL\b/gi, "IS NOT NULL");
         }
-        if (/(?<![!<>])=\s*NULL\b/i.test(masked) && !/\bIS\s+NULL\b/i.test(masked)) {
+        if (/(?<![!<>])=\s*NULL\b/i.test(masked)) {
           replacement = replacement.replace(/(?<![!<>])=\s*NULL\b/gi, "IS NULL");
         }
         if (replacement !== line) {

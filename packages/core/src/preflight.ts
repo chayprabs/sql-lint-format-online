@@ -1,6 +1,6 @@
 import type { ColumnDef, Dialect, LintIssue, SchemaMap } from "./types.js";
 import { parse } from "./parse.js";
-import { splitCommaRespectingParens, stripSqlComments } from "./sql-utils.js";
+import { maskStringLiterals, splitCommaRespectingParens, stripSqlComments } from "./sql-utils.js";
 
 function parseColumnDef(fragment: string): ColumnDef | null {
   const m = fragment.trim().match(/^"?(\w+)"?\s+((?:\w+\([^)]*\))|\w+)/i);
@@ -88,21 +88,43 @@ function lineColumnAt(sql: string, index: number): { line: number; column: numbe
   return { line: lines.length, column: (lines[lines.length - 1]?.length ?? 0) + 1 };
 }
 
+function maskFromJoinTables(sql: string): string {
+  return sql.replace(
+    /\b(?:FROM|JOIN)\s+((?:`[^`]+`|[\w.]+)(?:\s+(?:AS\s+)?\w+)?(?:\s*,\s*(?:`[^`]+`|[\w.]+)(?:\s+(?:AS\s+)?\w+)?)*)/gi,
+    (match) => " ".repeat(match.length),
+  );
+}
+
 function extractTableColumnRefs(sql: string): { table?: string; column: string; index: number }[] {
   const refs: { table?: string; column: string; index: number }[] = [];
-  const qualified = /\b(\w+)\.(\w+)\b/g;
+  const body = maskFromJoinTables(maskStringLiterals(stripSqlComments(sql)));
   const kw = new Set([
     "select", "from", "where", "join", "on", "and", "or", "as", "by", "set", "inner", "left", "right",
   ]);
+
+  const threePart = /\b(\w+)\.(\w+)\.(\w+)\b/g;
   let m: RegExpExecArray | null;
-  while ((m = qualified.exec(sql)) !== null) {
-    if (!kw.has(m[1]!.toLowerCase())) {
-      refs.push({
-        table: m[1]!.toLowerCase(),
-        column: m[2]!.toLowerCase(),
-        index: m.index ?? 0,
-      });
-    }
+  const consumed = new Set<number>();
+  while ((m = threePart.exec(body)) !== null) {
+    const idx = m.index ?? 0;
+    consumed.add(idx);
+    refs.push({
+      table: `${m[1]!.toLowerCase()}.${m[2]!.toLowerCase()}`,
+      column: m[3]!.toLowerCase(),
+      index: idx,
+    });
+  }
+
+  const twoPart = /\b(\w+)\.(\w+)\b/g;
+  while ((m = twoPart.exec(body)) !== null) {
+    const idx = m.index ?? 0;
+    if (consumed.has(idx)) continue;
+    if (kw.has(m[1]!.toLowerCase())) continue;
+    refs.push({
+      table: m[1]!.toLowerCase(),
+      column: m[2]!.toLowerCase(),
+      index: idx,
+    });
   }
   return refs;
 }

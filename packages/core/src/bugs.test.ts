@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyFix, lint } from "./lint.js";
 import { parse } from "./parse.js";
-import { parseDdl } from "./preflight.js";
+import { parseDdl, preflight } from "./preflight.js";
 import { rewrite } from "./rewrite.js";
 
 describe("regression bugs", () => {
@@ -23,6 +23,28 @@ describe("regression bugs", () => {
 
   it("rejects SELECT FROM WHERE", () => {
     expect(parse("SELECT FROM WHERE;", "postgresql").valid).toBe(false);
+  });
+
+  it("rejects SELECT * FROM with no table", () => {
+    expect(parse("SELECT * FROM", "postgresql").valid).toBe(false);
+  });
+
+  it("flags = NULL on same line as IS NULL", () => {
+    const sql = "SELECT id FROM t WHERE a = NULL AND b IS NULL;";
+    const issues = lint(sql, { dialect: "postgresql", bundle: "review" });
+    expect(issues.some((i) => i.rule === "null-equality")).toBe(true);
+  });
+
+  it("preflight ignores dotted literals in strings", () => {
+    const ddl = "CREATE TABLE users (id INT);";
+    const issues = preflight("SELECT 'a.b' FROM users;", ddl, "postgresql");
+    expect(issues.some((i) => i.message.includes("a.b"))).toBe(false);
+  });
+
+  it("preflight resolves schema.table columns", () => {
+    const ddl = "CREATE TABLE public.users (id INT);";
+    const issues = preflight("SELECT public.users.id FROM public.users;", ddl, "postgresql");
+    expect(issues.filter((i) => i.rule === "preflight-unknown-column")).toHaveLength(0);
   });
 
   it("flags UPDATE without top-level WHERE when subquery has WHERE", () => {

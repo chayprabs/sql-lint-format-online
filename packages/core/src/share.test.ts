@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeShareState, encodeShareState } from "./share.js";
+import { buildShareUrl, decodeShareState, encodeShareState } from "./share.js";
 
 describe("share", () => {
   it("round-trips state", () => {
@@ -14,5 +14,17 @@ describe("share", () => {
     expect(decoded?.sql).toBe(state.sql);
     expect(decoded?.dialect).toBe("postgresql");
     expect(decoded?.ddl).toBe(state.ddl);
+  });
+
+  it("decodes full share URLs from buildShareUrl", () => {
+    const state = {
+      sql: "SELECT 2;",
+      dialect: "mysql" as const,
+      bundle: "strict" as const,
+    };
+    const url = buildShareUrl("https://example.com/app/", state);
+    const decoded = decodeShareState(url);
+    expect(decoded?.sql).toBe(state.sql);
+    expect(decoded?.dialect).toBe("mysql");
   });
 });
