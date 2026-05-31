@@ -1,0 +1,36 @@
+{
+  "name": "@sqlguard/core",
+  "version": "1.0.0",
+  "description": "Browser-first SQL lint, format, rewrite and schema preflight engine",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "node-sql-parser": "^5.3.13",
+    "sql-formatter": "^15.4.11"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "eslint": "^9.28.0",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.33.0",
+    "vitest": "^3.2.1"
+  }
+}

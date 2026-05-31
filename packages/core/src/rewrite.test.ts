@@ -1,0 +1,24 @@
+import { describe, expect, it } from "vitest";
+import { parseDdl } from "./preflight.js";
+import { rewrite } from "./rewrite.js";
+
+describe("rewrite", () => {
+  it("expands SELECT * with schema", () => {
+    const ddl = `CREATE TABLE users (id INT, name VARCHAR(100));`;
+    const schema = parseDdl(ddl);
+    const sql = "SELECT * FROM users;";
+    const out = rewrite(sql, "expand-select-star", {
+      dialect: "postgresql",
+      schema,
+      defaultSchema: "public",
+    });
+    expect(out).toContain("users.id");
+    expect(out).toContain("users.name");
+  });
+
+  it("converts implicit join to explicit", () => {
+    const sql = "SELECT o.id FROM orders o, customers c WHERE o.customer_id = c.id;";
+    const out = rewrite(sql, "implicit-to-explicit-join", { dialect: "postgresql" });
+    expect(out.toUpperCase()).toContain("INNER JOIN");
+  });
+});
