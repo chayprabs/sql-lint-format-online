@@ -1,94 +1,170 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   applyFix,
   buildShareUrl,
   detectDialect,
   diffLines,
+  encodeShareState,
   format,
   lint,
   mergePreflightWithLint,
   parseDdl,
+  parseHashFromLocation,
   preflight,
   rewrite,
   toUnifiedPatch,
+  DEFAULT_SHARE,
   type Dialect,
+  type FormatOptions,
   type LintIssue,
   type RewriteKind,
   type RuleBundle,
-  parseHashFromLocation,
-  DEFAULT_SHARE,
+  type ShareState,
 } from "@sqlguard/core";
 import { DIALECTS, DIALECT_LABELS } from "@sqlguard/core";
+import {
+  clearPlayground,
+  DEFAULT_FORMAT_OPTIONS,
+  loadPlayground,
+  savePlayground,
+} from "../lib/storage";
 
 export { DIALECTS, DIALECT_LABELS };
+
+function syncUrlHash(state: ShareState) {
+  const encoded = encodeShareState(state);
+  const next = `#${encoded}`;
+  if (window.location.hash !== next) {
+    window.history.replaceState(null, "", next);
+  }
+}
 
 export function usePlayground(initialMode?: "lint" | "format", initialDialect?: Dialect) {
   const [sql, setSql] = useState(DEFAULT_SHARE.sql);
   const [dialect, setDialect] = useState<Dialect>(initialDialect ?? DEFAULT_SHARE.dialect);
   const [bundle, setBundle] = useState<RuleBundle>(DEFAULT_SHARE.bundle);
   const [ddl, setDdl] = useState("");
+  const [formatOptions, setFormatOptions] = useState<FormatOptions>(DEFAULT_FORMAT_OPTIONS);
   const [output, setOutput] = useState("");
   const [issues, setIssues] = useState<LintIssue[]>([]);
   const [showDiff, setShowDiff] = useState(false);
-  const [lastAction, setLastAction] = useState<string>("");
+  const [toast, setToast] = useState<string | null>(null);
+  const hydrated = useRef(false);
 
   const schema = useMemo(() => parseDdl(ddl), [ddl]);
 
-  useEffect(() => {
-    const state = parseHashFromLocation(window.location.hash);
-    if (state) {
-      setSql(state.sql);
-      setDialect(state.dialect);
-      setBundle(state.bundle);
-      if (state.ddl) setDdl(state.ddl);
-    }
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    window.setTimeout(() => setToast(null), 2200);
+  }, []);
+
+  const applyShareState = useCallback((state: ShareState) => {
+    setSql(state.sql);
+    setDialect(state.dialect);
+    setBundle(state.bundle);
+    if (state.ddl) setDdl(state.ddl);
+    if (state.formatOptions) setFormatOptions({ ...DEFAULT_FORMAT_OPTIONS, ...state.formatOptions });
   }, []);
 
   useEffect(() => {
-    if (initialMode === "format" && !output) {
-      setOutput(format(sql, dialect));
-    }
-    if (initialMode === "lint" && issues.length === 0) {
-      const lintIssues = lint(sql, { dialect, bundle });
-      const preIssues = ddl.trim() ? preflight(sql, ddl, dialect) : [];
-      setIssues(mergePreflightWithLint(lintIssues, preIssues));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount for SEO routes
-  }, []);
+    void (async () => {
+      let loadedSql = DEFAULT_SHARE.sql;
+      let loadedDialect = initialDialect ?? DEFAULT_SHARE.dialect;
+      let loadedBundle = DEFAULT_SHARE.bundle;
+      let loadedDdl = "";
+      let loadedFormat = DEFAULT_FORMAT_OPTIONS;
+
+      const fromHash = parseHashFromLocation(window.location.hash);
+      if (fromHash) {
+        loadedSql = fromHash.sql;
+        loadedDialect = fromHash.dialect;
+        loadedBundle = fromHash.bundle;
+        loadedDdl = fromHash.ddl ?? "";
+        loadedFormat = { ...DEFAULT_FORMAT_OPTIONS, ...fromHash.formatOptions };
+      } else {
+        const saved = await loadPlayground();
+        if (saved) {
+          loadedSql = saved.sql;
+          loadedDialect = saved.dialect;
+          loadedBundle = saved.bundle;
+          loadedDdl = saved.ddl;
+          loadedFormat = saved.formatOptions;
+        }
+      }
+
+      setSql(loadedSql);
+      setDialect(loadedDialect);
+      setBundle(loadedBundle);
+      setDdl(loadedDdl);
+      setFormatOptions(loadedFormat);
+      hydrated.current = true;
+
+      if (initialMode === "format") {
+        setOutput(format(loadedSql, loadedDialect, loadedFormat));
+        setShowDiff(true);
+      }
+      if (initialMode === "lint") {
+        const lintIssues = lint(loadedSql, { dialect: loadedDialect, bundle: loadedBundle });
+        const preIssues = loadedDdl.trim()
+          ? preflight(loadedSql, loadedDdl, loadedDialect)
+          : [];
+        setIssues(mergePreflightWithLint(lintIssues, preIssues));
+      }
+    })();
+  }, [applyShareState, initialDialect, initialMode]);
+
+  useEffect(() => {
+    const onHashChange = () => {
+      const state = parseHashFromLocation(window.location.hash);
+      if (state) applyShareState(state);
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, [applyShareState]);
+
+  useEffect(() => {
+    if (!hydrated.current) return;
+    void savePlayground({ sql, dialect, bundle, ddl, formatOptions });
+    syncUrlHash({ sql, dialect, bundle, ddl: ddl || undefined, formatOptions });
+  }, [sql, dialect, bundle, ddl, formatOptions]);
 
   const runLint = useCallback(() => {
     const lintIssues = lint(sql, { dialect, bundle });
     const preIssues = ddl.trim() ? preflight(sql, ddl, dialect) : [];
-    const merged = mergePreflightWithLint(lintIssues, preIssues);
-    setIssues(merged);
+    setIssues(mergePreflightWithLint(lintIssues, preIssues));
     setOutput("");
     setShowDiff(false);
-    setLastAction("lint");
   }, [sql, dialect, bundle, ddl]);
 
   const runFormat = useCallback(() => {
-    const formatted = format(sql, dialect);
+    const formatted = format(sql, dialect, formatOptions);
     setOutput(formatted);
     setIssues([]);
-    setShowDiff(false);
-    setLastAction("format");
-  }, [sql, dialect]);
+    setShowDiff(true);
+  }, [sql, dialect, formatOptions]);
 
   const runRewrite = useCallback(
     (kind: RewriteKind) => {
+      if (kind === "expand-select-star" && Object.keys(schema).length === 0) {
+        showToast("Paste schema DDL to expand SELECT *");
+        return;
+      }
       const result = rewrite(sql, kind, { dialect, schema, defaultSchema: "public" });
+      if (result === sql) {
+        showToast("Rewrite had no effect for this query");
+        return;
+      }
       setOutput(result);
       setShowDiff(true);
-      setLastAction(`rewrite:${kind}`);
     },
-    [sql, dialect, schema],
+    [sql, dialect, schema, showToast],
   );
 
   const runDetect = useCallback(() => {
     const detected = detectDialect(sql);
     setDialect(detected);
-    setLastAction("detect");
-  }, [sql]);
+    showToast(`Dialect set to ${DIALECT_LABELS[detected]}`);
+  }, [sql, showToast]);
 
   const applyIssueFix = useCallback(
     (issue: LintIssue) => {
@@ -100,9 +176,9 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
       setIssues(mergePreflightWithLint(lintIssues, preIssues));
       setOutput("");
       setShowDiff(false);
-      setLastAction("fix");
+      showToast("Fix applied");
     },
-    [sql, dialect, bundle, ddl],
+    [sql, dialect, bundle, ddl, showToast],
   );
 
   const share = useCallback(() => {
@@ -111,15 +187,42 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
       dialect,
       bundle,
       ddl: ddl || undefined,
+      formatOptions,
     });
-    void navigator.clipboard.writeText(url);
-  }, [sql, dialect, bundle, ddl]);
+    syncUrlHash({ sql, dialect, bundle, ddl: ddl || undefined, formatOptions });
+    void navigator.clipboard.writeText(url).then(() => showToast("Share link copied"));
+  }, [sql, dialect, bundle, ddl, formatOptions, showToast]);
 
   const copyPatch = useCallback(() => {
     if (!output) return;
     const patch = toUnifiedPatch(sql, output);
-    void navigator.clipboard.writeText(patch);
-  }, [sql, output]);
+    void navigator.clipboard.writeText(patch).then(() => showToast("Patch copied"));
+  }, [sql, output, showToast]);
+
+  const clearHistory = useCallback(() => {
+    void clearPlayground();
+    setSql(DEFAULT_SHARE.sql);
+    setDialect(DEFAULT_SHARE.dialect);
+    setBundle(DEFAULT_SHARE.bundle);
+    setDdl("");
+    setFormatOptions(DEFAULT_FORMAT_OPTIONS);
+    setOutput("");
+    setIssues([]);
+    window.history.replaceState(null, "", window.location.pathname);
+    showToast("Local history cleared");
+  }, [showToast]);
+
+  const loadSample = useCallback(
+    (sample: string, sampleDialect?: Dialect) => {
+      setSql(sample);
+      if (sampleDialect) setDialect(sampleDialect);
+      const lintIssues = lint(sample, { dialect: sampleDialect ?? dialect, bundle });
+      setIssues(lintIssues);
+      setOutput("");
+      showToast("Sample loaded — lint results updated");
+    },
+    [dialect, bundle, showToast],
+  );
 
   const diff = useMemo(() => {
     if (!showDiff || !output) return [];
@@ -135,11 +238,13 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
     setBundle,
     ddl,
     setDdl,
+    formatOptions,
+    setFormatOptions,
     output,
     issues,
     showDiff,
     setShowDiff,
-    lastAction,
+    toast,
     runLint,
     runFormat,
     runRewrite,
@@ -147,6 +252,8 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
     applyIssueFix,
     share,
     copyPatch,
+    clearHistory,
+    loadSample,
     diff,
   };
 }

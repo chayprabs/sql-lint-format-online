@@ -3,6 +3,11 @@ import { toFormatterLanguage } from "./dialects.js";
 import { parse } from "./parse.js";
 import type { Dialect, FormatOptions } from "./types.js";
 
+function tabWidthForIndent(indentStyle?: FormatOptions["indentStyle"]): number {
+  if (indentStyle === "tabularLeft" || indentStyle === "tabularRight") return 4;
+  return 2;
+}
+
 export function format(sql: string, dialect: Dialect, options: FormatOptions = {}): string {
   const trimmed = sql.trim();
   if (!trimmed) return "";
@@ -14,7 +19,7 @@ export function format(sql: string, dialect: Dialect, options: FormatOptions = {
     return sqlFormat(trimmed, {
       language,
       keywordCase,
-      tabWidth: 2,
+      tabWidth: tabWidthForIndent(options.indentStyle),
       linesBetweenQueries: options.linesBetweenQueries ?? 1,
       paramTypes: { named: [":", "@", "$"] },
     });

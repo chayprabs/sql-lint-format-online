@@ -3,6 +3,7 @@ import { Layout } from "./components/Layout";
 import { HomePage } from "./pages/HomePage";
 import { PrivacyPage } from "./pages/PrivacyPage";
 import { SeoRoutePage } from "./pages/SeoRoutePage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 import { TermsPage } from "./pages/TermsPage";
 
 export const router = createBrowserRouter([
@@ -40,6 +41,7 @@ export const router = createBrowserRouter([
       },
       { path: "privacy", element: <PrivacyPage /> },
       { path: "terms", element: <TermsPage /> },
+      { path: "*", element: <NotFoundPage /> },
     ],
   },
 ]);

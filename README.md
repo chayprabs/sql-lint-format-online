@@ -8,14 +8,17 @@
 
 ## Features
 
-- **9 dialects** — PostgreSQL, MySQL, SQLite, MS SQL Server, Snowflake, BigQuery, Redshift, DuckDB, Oracle
-- **Lint** — rule bundles (review / strict / BigQuery), severity levels, one-click fixes where available
-- **Format** — keyword case, indentation, comment preservation via sql-formatter
+- **9 dialects** — PostgreSQL, MySQL, SQLite, MS SQL Server, Snowflake, BigQuery, Redshift, DuckDB, Oracle (auto-detect supported)
+- **Monaco SQL editor** — syntax-aware editing (lazy-loaded to keep first paint fast)
+- **Lint** — rule bundles (review / strict / BigQuery), severity levels, one-click fixes
+- **Format** — keyword case, indent style, comment preservation via sql-formatter
 - **Safe rewrites** — expand `SELECT *`, qualify tables, extract CTE, anti-join → `NOT EXISTS`, implicit → explicit JOIN
 - **Risky-query warnings** — missing `WHERE` on `UPDATE`/`DELETE`, cartesian joins, `= NULL` mistakes, full-scan hints
-- **Schema preflight** — paste DDL to validate column references and basic type checks
-- **Patch view** — diff toggle and copy-as-patch
-- **Share** — URL hash encodes SQL, dialect, and rule bundle
+- **Schema preflight** — paste or upload DDL; column and type checks with table aliases
+- **Patch view** — unified diff and copy-as-patch
+- **Share** — URL hash syncs SQL, dialect, bundle, and format options (clipboard + address bar)
+- **Privacy** — processing stays in the browser; IndexedDB history with a clear control
+- **PWA** — installable, offline-friendly static assets
 
 ## Quick start
 
@@ -25,6 +28,8 @@ pnpm dev
 ```
 
 Open http://localhost:5173
+
+Live demo (GitHub Pages): https://chayprabs.github.io/sql-lint-format-online/
 
 ## Production build
 

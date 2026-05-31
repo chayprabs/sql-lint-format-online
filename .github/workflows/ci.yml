@@ -40,15 +40,20 @@ jobs:
       - name: Bundle size check
         run: |
           TOTAL=0
-          for f in packages/web/dist/assets/*.js; do
+          for f in packages/web/dist/assets/index-*.js packages/web/dist/assets/vendor-*.js; do
             [ -f "$f" ] && TOTAL=$((TOTAL + $(wc -c < "$f")))
           done
-          echo "Total JS bytes: $TOTAL"
+          echo "Initial load JS bytes (index+vendor): $TOTAL"
           MAX=1572864
           if [ "$TOTAL" -gt "$MAX" ]; then
-            echo "Bundle exceeds 1.5 MB budget"
+            echo "Initial bundle exceeds 1.5 MB budget"
             exit 1
           fi
+          MONACO=0
+          for f in packages/web/dist/assets/monaco-*.js; do
+            [ -f "$f" ] && MONACO=$((MONACO + $(wc -c < "$f")))
+          done
+          echo "Monaco lazy chunk bytes: $MONACO"
 
       - name: Install Playwright
         run: pnpm exec playwright install chromium --with-deps

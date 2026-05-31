@@ -49,3 +49,22 @@ test("external links in header", async ({ page }) => {
     "https://github.com/chayprabs/sql-lint-format-online",
   );
 });
+
+test("format options and diff", async ({ page }) => {
+  await page.goto("/");
+  await page.getByPlaceholder("Paste your SQL here").fill("select id from users");
+  await page.getByRole("button", { name: "Format" }).click();
+  await expect(page.getByText("Show diff")).toBeVisible();
+});
+
+test("share updates hash", async ({ page }) => {
+  await page.goto("/");
+  await page.getByPlaceholder("Paste your SQL here").fill("SELECT 1;");
+  await page.getByRole("button", { name: "Copy share link" }).click();
+  await expect(page).toHaveURL(/#/);
+});
+
+test("404 page", async ({ page }) => {
+  await page.goto("/does-not-exist");
+  await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
+});

@@ -78,21 +78,43 @@ const RULES: Record<string, { severity: LintIssue["severity"]; run: RuleFn }> = 
       const issues: LintIssue[] = [];
       const lines = sql.split("\n");
       lines.forEach((line, idx) => {
+        let replacement = line;
         if (/=\s*NULL\b/i.test(line) && !/\bIS\s+NULL\b/i.test(line)) {
+          replacement = replacement.replace(/=\s*NULL\b/gi, "IS NULL");
+        }
+        if (/<>?\s*NULL\b/i.test(line) && !/\bIS\s+NOT\s+NULL\b/i.test(line)) {
+          replacement = replacement.replace(/<>?\s*NULL\b/gi, "IS NOT NULL");
+        }
+        if (replacement !== line) {
           issues.push({
             rule: "null-equality",
             severity: "warn",
             line: idx + 1,
-            column: line.search(/=\s*NULL/i) + 1,
-            message: "Use IS NULL / IS NOT NULL instead of = NULL",
-            fix: {
-              range: [0, line.length],
-              replacement: line.replace(/=\s*NULL/gi, "IS NULL"),
-            },
+            column: 1,
+            message: "Use IS NULL / IS NOT NULL instead of = NULL or <> NULL",
+            fix: { range: [0, line.length], replacement },
           });
         }
       });
       return issues;
+    },
+  },
+  "trailing-semicolon": {
+    severity: "info",
+    run: (sql) => {
+      if (sql.trim() && !sql.trim().endsWith(";")) {
+        return [
+          {
+            rule: "trailing-semicolon",
+            severity: "info",
+            line: sql.split("\n").length,
+            column: 1,
+            message: "Consider terminating the statement with a semicolon",
+            fix: { range: [0, sql.length], replacement: `${sql.trimEnd()};` },
+          },
+        ];
+      }
+      return [];
     },
   },
   "select-star": {
@@ -190,6 +212,7 @@ const BUNDLES: Record<RuleBundle, string[]> = {
     "select-star",
     "full-table-scan-hint",
     "keyword-case",
+    "trailing-semicolon",
   ],
   bigquery: [
     "parse-error",

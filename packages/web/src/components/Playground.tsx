@@ -9,9 +9,11 @@ import {
   type RewriteKind,
   type RuleBundle,
 } from "@sqlguard/core";
+import { usePlayground } from "../hooks/usePlayground";
+import { SqlEditor } from "./SqlEditor";
+import { Toast } from "./Toast";
 
 type Dialect = (typeof DIALECTS)[number];
-import { usePlayground } from "../hooks/usePlayground";
 
 const REWRITES: { kind: RewriteKind; label: string }[] = [
   { kind: "expand-select-star", label: "Expand SELECT *" },
@@ -23,24 +25,33 @@ const REWRITES: { kind: RewriteKind; label: string }[] = [
 
 interface PlaygroundProps {
   focus?: "lint" | "format";
-  defaultDialect?: (typeof DIALECTS)[number];
+  defaultDialect?: Dialect;
 }
 
 export function Playground({ focus, defaultDialect }: PlaygroundProps) {
   const pg = usePlayground(focus, defaultDialect);
   const bundles = getRuleBundles();
 
+  const onDdlFile = (file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => pg.setDdl(String(reader.result ?? ""));
+    reader.readAsText(file);
+  };
+
   return (
     <div className="space-y-4">
+      <Toast message={pg.toast} />
+
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-[var(--color-text-muted)]">Dialect</span>
           <select
             value={pg.dialect}
-            onChange={(e) => pg.setDialect(e.target.value as (typeof DIALECTS)[number])}
+            onChange={(e) => pg.setDialect(e.target.value as Dialect)}
             className="rounded-md border border-[var(--color-border)] bg-white px-3 py-2 text-sm"
           >
-            {DIALECTS.map((d: Dialect) => (
+            {DIALECTS.map((d) => (
               <option key={d} value={d}>
                 {DIALECT_LABELS[d]}
               </option>
@@ -51,14 +62,48 @@ export function Playground({ focus, defaultDialect }: PlaygroundProps) {
           <span className="font-medium text-[var(--color-text-muted)]">Rule bundle</span>
           <select
             value={pg.bundle}
-            onChange={(e) => pg.setBundle(e.target.value as typeof pg.bundle)}
+            onChange={(e) => pg.setBundle(e.target.value as RuleBundle)}
             className="rounded-md border border-[var(--color-border)] bg-white px-3 py-2 text-sm capitalize"
           >
-            {bundles.map((b: RuleBundle) => (
+            {bundles.map((b) => (
               <option key={b} value={b}>
                 {b}
               </option>
             ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-[var(--color-text-muted)]">Keyword case</span>
+          <select
+            value={pg.formatOptions.keywordCase ?? "upper"}
+            onChange={(e) =>
+              pg.setFormatOptions({
+                ...pg.formatOptions,
+                keywordCase: e.target.value as "upper" | "lower" | "preserve",
+              })
+            }
+            className="rounded-md border border-[var(--color-border)] bg-white px-3 py-2 text-sm"
+          >
+            <option value="upper">UPPER</option>
+            <option value="lower">lower</option>
+            <option value="preserve">preserve</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-[var(--color-text-muted)]">Indent</span>
+          <select
+            value={pg.formatOptions.indentStyle ?? "standard"}
+            onChange={(e) =>
+              pg.setFormatOptions({
+                ...pg.formatOptions,
+                indentStyle: e.target.value as "standard" | "tabularLeft" | "tabularRight",
+              })
+            }
+            className="rounded-md border border-[var(--color-border)] bg-white px-3 py-2 text-sm"
+          >
+            <option value="standard">Standard</option>
+            <option value="tabularLeft">Tabular left</option>
+            <option value="tabularRight">Tabular right</option>
           </select>
         </label>
         <button
@@ -68,31 +113,48 @@ export function Playground({ focus, defaultDialect }: PlaygroundProps) {
         >
           Auto-detect dialect
         </button>
+        <button
+          type="button"
+          onClick={pg.clearHistory}
+          className="rounded-md border border-[var(--color-border)] bg-white px-4 py-2 text-sm text-[var(--color-text-muted)] hover:bg-gray-50"
+        >
+          Clear local history
+        </button>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="space-y-2">
-          <label className="text-sm font-medium">SQL input</label>
-          <textarea
+          <label className="text-sm font-medium" htmlFor="sql-editor">
+            SQL input
+          </label>
+          <SqlEditor
             value={pg.sql}
-            onChange={(e) => pg.setSql(e.target.value)}
-            spellCheck={false}
-            className="h-56 w-full resize-y rounded-lg border border-[var(--color-border)] bg-white p-3 font-mono text-sm leading-relaxed shadow-sm focus:border-[var(--color-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+            onChange={pg.setSql}
+            height="14rem"
             placeholder="Paste your SQL here…"
           />
-          <label className="text-sm font-medium">Schema DDL (optional, for preflight &amp; SELECT *)</label>
-          <textarea
-            value={pg.ddl}
-            onChange={(e) => pg.setDdl(e.target.value)}
-            spellCheck={false}
-            className="h-24 w-full resize-y rounded-lg border border-[var(--color-border)] bg-white p-3 font-mono text-xs leading-relaxed"
-            placeholder="CREATE TABLE users (id INT, name VARCHAR(100));"
-          />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label className="text-sm font-medium">Schema DDL (preflight &amp; SELECT *)</label>
+            <label className="cursor-pointer text-xs text-[var(--color-accent)] hover:underline">
+              Upload .sql
+              <input
+                type="file"
+                accept=".sql,.txt,text/plain"
+                className="hidden"
+                onChange={(e) => onDdlFile(e.target.files?.[0] ?? null)}
+              />
+            </label>
+          </div>
+          <SqlEditor value={pg.ddl} onChange={pg.setDdl} height="6rem" placeholder="CREATE TABLE …" />
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Issues</label>
-          <div className="h-56 overflow-y-auto rounded-lg border border-[var(--color-border)] bg-white p-2 shadow-sm">
+          <div
+            className="h-[21rem] overflow-y-auto rounded-lg border border-[var(--color-border)] bg-white p-2 shadow-sm"
+            aria-live="polite"
+            aria-relevant="additions"
+          >
             {pg.issues.length === 0 ? (
               <p className="p-2 text-sm text-[var(--color-text-muted)]">
                 Run Lint to see issues, or load a sample below.
@@ -176,17 +238,19 @@ export function Playground({ focus, defaultDialect }: PlaygroundProps) {
 
       <div className="flex flex-wrap gap-2 text-xs text-[var(--color-text-muted)]">
         <span>Samples:</span>
-        {[
-          ["Risky UPDATE", SAMPLE_RISKY_UPDATE],
-          ["Messy SELECT", SAMPLE_MESSY_SELECT],
-          ["BigQuery", SAMPLE_BIGQUERY],
-          ["Snowflake", SAMPLE_SNOWFLAKE],
-        ].map(([label, sample]) => (
+        {(
+          [
+            ["Risky UPDATE", SAMPLE_RISKY_UPDATE, undefined],
+            ["Messy SELECT", SAMPLE_MESSY_SELECT, undefined],
+            ["BigQuery", SAMPLE_BIGQUERY, "bigquery" as Dialect],
+            ["Snowflake", SAMPLE_SNOWFLAKE, "snowflake" as Dialect],
+          ] as const
+        ).map(([label, sample, d]) => (
           <button
             key={label}
             type="button"
             className="underline hover:text-[var(--color-accent)]"
-            onClick={() => pg.setSql(sample as string)}
+            onClick={() => pg.loadSample(sample, d)}
           >
             {label}
           </button>
@@ -202,7 +266,9 @@ export function Playground({ focus, defaultDialect }: PlaygroundProps) {
                 <>
                   <button
                     type="button"
-                    onClick={() => void navigator.clipboard.writeText(pg.output)}
+                    onClick={() =>
+                      void navigator.clipboard.writeText(pg.output).then(() => {})
+                    }
                     className="text-xs text-[var(--color-accent)] hover:underline"
                   >
                     Copy SQL
@@ -230,7 +296,7 @@ export function Playground({ focus, defaultDialect }: PlaygroundProps) {
           </div>
           {pg.showDiff && pg.diff.length > 0 ? (
             <pre className="max-h-64 overflow-auto rounded-lg border border-[var(--color-border)] bg-white p-3 font-mono text-xs">
-              {pg.diff.map((line: { type: string; content: string }, i: number) => (
+              {pg.diff.map((line, i) => (
                 <div
                   key={i}
                   className={

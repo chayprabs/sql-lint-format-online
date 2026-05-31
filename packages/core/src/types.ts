@@ -65,4 +65,5 @@ export interface ShareState {
   dialect: Dialect;
   bundle: RuleBundle;
   ddl?: string;
+  formatOptions?: FormatOptions;
 }

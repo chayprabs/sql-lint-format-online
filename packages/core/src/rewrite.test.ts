@@ -21,4 +21,18 @@ describe("rewrite", () => {
     const out = rewrite(sql, "implicit-to-explicit-join", { dialect: "postgresql" });
     expect(out.toUpperCase()).toContain("INNER JOIN");
   });
+
+  it("qualifies FROM and JOIN tables", () => {
+    const sql = "SELECT * FROM users JOIN orders ON users.id = orders.user_id;";
+    const out = rewrite(sql, "qualify-tables", { dialect: "postgresql", defaultSchema: "app" });
+    expect(out).toContain("app.users");
+    expect(out).toContain("app.orders");
+  });
+
+  it("extracts subquery to CTE", () => {
+    const sql = "SELECT * FROM (SELECT id FROM users) sub;";
+    const out = rewrite(sql, "extract-cte", { dialect: "postgresql" });
+    expect(out).toContain("WITH");
+    expect(out).toContain("extracted_subquery");
+  });
 });

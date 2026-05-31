@@ -28,6 +28,14 @@ const DIALECT_HINTS: { dialect: Dialect; patterns: RegExp[] }[] = [
     patterns: [/\bDUAL\b/i, /\bROWNUM\b/i, /\bNVL\s*\(/i],
   },
   {
+    dialect: "redshift",
+    patterns: [/\bDISTKEY\b/i, /\bSORTKEY\b/i, /\bENCODE\b/i],
+  },
+  {
+    dialect: "duckdb",
+    patterns: [/\bLIST\s*\(/i, /\bSTRUCT_PACK\s*\(/i],
+  },
+  {
     dialect: "sqlite",
     patterns: [/\bAUTOINCREMENT\b/i, /\bGLOB\b/i],
   },
