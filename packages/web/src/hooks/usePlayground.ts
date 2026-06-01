@@ -52,7 +52,9 @@ export function usePlayground(initialMode?: "lint" | "format", initialDialect?: 
   const hydrated = useRef(false);
   const skipHashSync = useRef(false);
   const issuesRef = useRef<LintIssue[]>([]);
-  issuesRef.current = issues;
+  useEffect(() => {
+    issuesRef.current = issues;
+  }, [issues]);
 
   const schema = useMemo(() => parseDdl(ddl), [ddl]);
 
