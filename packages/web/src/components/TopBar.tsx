@@ -43,7 +43,7 @@ export function TopBar() {
             className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] transition hover:text-[var(--color-text)]"
             title="GitHub repository"
           >
-            <Github size={18} />
+            <GitHubIcon className="h-[18px] w-[18px]" />
             <span className="hidden sm:inline">GitHub</span>
           </a>
           <a
