@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "diff": "^7.0.0",
-    "sql-formatter": "^15.4.11"
+    "sql-formatter": "^15.8.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
